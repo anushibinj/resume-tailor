@@ -1,0 +1,11 @@
+# Activated by start-dev.sh (mvn spring-boot:run -Dspring-boot.run.profiles=dev).
+logging:
+  level:
+    com.resumetailor: DEBUG
+    org.hibernate.SQL: DEBUG
+
+spring:
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true

@@ -1,0 +1,127 @@
+import type {
+  CreateRunRequest,
+  LlmProfile,
+  Page,
+  ResumeDetail,
+  ResumeSummary,
+  RunDetail,
+  RunSummary,
+  SaveLlmProfileRequest,
+  SaveResumeRequest,
+  SuggestionStatus,
+  TestConnectionResponse,
+} from "./types";
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+
+/** Carries the backend's message so the UI can show what to fix, not just "request failed". */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly fieldErrors: Record<string, string>;
+
+  constructor(status: number, message: string, fieldErrors: Record<string, string> = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.fieldErrors = fieldErrors;
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch {
+    throw new ApiError(0, `Can't reach the backend at ${BASE_URL}. Is it running?`);
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await readErrorMessage(response), await readFieldErrors(response));
+  }
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  return (await response.json()) as T;
+}
+
+/** The body can only be read once, so both helpers work from a clone. */
+async function readErrorMessage(response: Response): Promise<string> {
+  try {
+    const body = await response.clone().json();
+    return body?.message || `Request failed (${response.status})`;
+  } catch {
+    return `Request failed (${response.status})`;
+  }
+}
+
+async function readFieldErrors(response: Response): Promise<Record<string, string>> {
+  try {
+    const body = await response.clone().json();
+    return body?.fieldErrors ?? {};
+  } catch {
+    return {};
+  }
+}
+
+async function download(path: string, init?: RequestInit): Promise<void> {
+  const response = await fetch(`${BASE_URL}${path}`, init);
+  if (!response.ok) {
+    throw new ApiError(response.status, await readErrorMessage(response), await readFieldErrors(response));
+  }
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filename = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? "resume";
+
+  const url = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+export const api = {
+  resumes: {
+    list: () => request<ResumeSummary[]>("/api/resumes"),
+    get: (id: string) => request<ResumeDetail>(`/api/resumes/${id}`),
+    create: (body: SaveResumeRequest) =>
+      request<ResumeDetail>("/api/resumes", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: SaveResumeRequest) =>
+      request<ResumeDetail>(`/api/resumes/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    setDefault: (id: string) => request<ResumeDetail>(`/api/resumes/${id}/default`, { method: "POST" }),
+    remove: (id: string) => request<void>(`/api/resumes/${id}`, { method: "DELETE" }),
+  },
+  llmProfiles: {
+    list: () => request<LlmProfile[]>("/api/llm-profiles"),
+    create: (body: SaveLlmProfileRequest) =>
+      request<LlmProfile>("/api/llm-profiles", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: SaveLlmProfileRequest) =>
+      request<LlmProfile>(`/api/llm-profiles/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    setDefault: (id: string) => request<LlmProfile>(`/api/llm-profiles/${id}/default`, { method: "POST" }),
+    test: (id: string) =>
+      request<TestConnectionResponse>(`/api/llm-profiles/${id}/test`, { method: "POST" }),
+    remove: (id: string) => request<void>(`/api/llm-profiles/${id}`, { method: "DELETE" }),
+  },
+  runs: {
+    list: (page = 0, size = 20) => request<Page<RunSummary>>(`/api/runs?page=${page}&size=${size}`),
+    get: (id: string) => request<RunDetail>(`/api/runs/${id}`),
+    create: (body: CreateRunRequest) =>
+      request<RunDetail>("/api/runs", { method: "POST", body: JSON.stringify(body) }),
+    updateSuggestion: (runId: string, suggestionId: string, status: SuggestionStatus) =>
+      request<RunDetail>(`/api/runs/${runId}/suggestions/${suggestionId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+    remove: (id: string) => request<void>(`/api/runs/${id}`, { method: "DELETE" }),
+    pdfAvailable: (id: string) => request<{ enabled: boolean }>(`/api/runs/${id}/pdf/available`),
+    downloadSource: (id: string) => download(`/api/runs/${id}/export`),
+    compilePdf: (id: string) => download(`/api/runs/${id}/pdf`, { method: "POST" }),
+  },
+};

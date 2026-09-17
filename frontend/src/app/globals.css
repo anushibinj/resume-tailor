@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+/*
+  "The editing desk" -- this app's job is proofing a document, so the palette is
+  paper and ink with one editor's-pencil accent. Colour carries meaning here:
+  pencil = the editor's mark, strike = removed, gap = a requirement you don't cover.
+*/
+:root {
+  --paper: #f6f7f4;
+  --surface: #ffffff;
+  --surface-sunk: #eef0ec;
+  --ink: #1d2b2f;
+  --ink-soft: #5c6f74;
+  --ink-faint: #8b9a9e;
+  --rule: #dce1dc;
+  --rule-strong: #c3ccc4;
+
+  --pencil: #2f5d8c;
+  --pencil-soft: #e4ecf5;
+  --strike: #8a4a58;
+  --strike-soft: #f4e7ea;
+  --gap: #8a6d2b;
+  --gap-soft: #f5efdf;
+}
+
+.dark {
+  --paper: #141a1c;
+  --surface: #1b2326;
+  --surface-sunk: #101517;
+  --ink: #e6ecea;
+  --ink-soft: #9db0b3;
+  --ink-faint: #6b7e82;
+  --rule: #2a3538;
+  --rule-strong: #3b4a4e;
+
+  --pencil: #7dabdd;
+  --pencil-soft: #1c2c3d;
+  --strike: #d094a0;
+  --strike-soft: #332226;
+  --gap: #d3b166;
+  --gap-soft: #2e2818;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-sunk: var(--surface-sunk);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-pencil: var(--pencil);
+  --color-pencil-soft: var(--pencil-soft);
+  --color-strike: var(--strike);
+  --color-strike-soft: var(--strike-soft);
+  --color-gap: var(--gap);
+  --color-gap-soft: var(--gap-soft);
+
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+html {
+  color-scheme: light;
+}
+
+.dark html,
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Keyboard focus stays visible everywhere; the accent doubles as the focus colour. */
+:focus-visible {
+  outline: 2px solid var(--pencil);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: var(--pencil-soft);
+  color: var(--ink);
+}
+
+/* Proofreading marks: additions underlined in pencil, cuts struck in maroon. */
+.mark-add {
+  background: var(--pencil-soft);
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--pencil);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  border-radius: 1px;
+}
+
+.mark-cut {
+  background: var(--strike-soft);
+  color: var(--strike);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.document {
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
