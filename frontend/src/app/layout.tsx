@@ -36,7 +36,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
       className={`${instrumentSans.variable} ${newsreader.variable} ${plexMono.variable} h-full`}
     >
-      <body className="flex min-h-full flex-col">
+      {/*
+        Browser extensions add attributes to <body> before React hydrates -- ColorZilla adds
+        cz-shortcut-listen="true", Grammarly adds data-gr-ext-installed -- which React reports as a
+        hydration mismatch the app didn't cause. suppressHydrationWarning only covers this
+        element's own attributes, one level deep: a real mismatch in any component inside
+        <body> is still reported.
+      */}
+      <body className="flex min-h-full flex-col" suppressHydrationWarning>
         <Providers>
           <SiteHeader />
           <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-10">{children}</main>

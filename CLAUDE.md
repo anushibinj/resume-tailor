@@ -235,3 +235,9 @@ bean graph fails the default suite rather than surfacing at `spring-boot:run`.
   `NEXT_PUBLIC_API_BASE_URL`, defaulting to `http://localhost:8080`, and the backend
   allows the frontend origin via CORS. `frontend/.env.example` is committed on purpose —
   the scaffold's `.env*` ignore rule has a `!.env.example` exception for it.
+- `<html>` and `<body>` in `frontend/src/app/layout.tsx` both carry
+  `suppressHydrationWarning`. `<html>` needs it because next-themes sets the theme class
+  before hydration; `<body>` needs it because browser extensions (ColorZilla,
+  Grammarly) inject attributes there. It only covers that element's own attributes, one
+  level deep — a mismatch in any child is still reported, which was verified. Do not
+  spread it onto components to quiet a hydration warning: that hides real bugs.
