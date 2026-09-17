@@ -5,6 +5,8 @@ export type RunStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 export type KeywordImportance = "REQUIRED" | "PREFERRED" | "NICE";
 export type SuggestionKind = "BULLET" | "SKILL" | "SUMMARY";
 export type SuggestionStatus = "PROPOSED" | "ACCEPTED" | "REJECTED";
+/** Gap analysis runs after the rewrite, so it has its own status. */
+export type GapsStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "OUTDATED";
 
 export interface ResumeSummary {
   id: string;
@@ -83,6 +85,8 @@ export interface SectionDiff {
 export interface Suggestion {
   id: string;
   kind: SuggestionKind;
+  /** The requirement this addition addresses; null for ones made before gap analysis. */
+  keyword: string | null;
   targetSection: string | null;
   content: string;
   rationale: string | null;
@@ -92,8 +96,16 @@ export interface Suggestion {
 export interface KeywordResult {
   keyword: string;
   importance: KeywordImportance;
-  presentInOriginal: boolean;
-  presentInTailored: boolean;
+  /** The model's judgment, with evidence quoted from the resume. */
+  covered: boolean;
+  evidence: string | null;
+  /** Offered when the requirement is not covered, so the gap can be closed in one click. */
+  addition: Suggestion | null;
+}
+
+/** A requirement counts as covered once its offered addition has been accepted. */
+export function isCovered(keyword: KeywordResult): boolean {
+  return keyword.covered || keyword.addition?.status === "ACCEPTED";
 }
 
 export interface RunSummary {
@@ -111,6 +123,8 @@ export interface RunSummary {
 export interface RunDetail {
   id: string;
   status: RunStatus;
+  gapsStatus: GapsStatus;
+  gapsError: string | null;
   format: ResumeFormat;
   company: string | null;
   role: string | null;
@@ -126,8 +140,9 @@ export interface RunDetail {
   matchScore: number | null;
   errorMessage: string | null;
   sections: SectionDiff[];
-  suggestions: Suggestion[];
   keywords: KeywordResult[];
+  /** Additions not tied to a current requirement, e.g. kept from an earlier check. */
+  otherSuggestions: Suggestion[];
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;

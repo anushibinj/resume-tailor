@@ -50,6 +50,11 @@ public final class SectionSegmenter {
     private static void collect(String body, Pattern pattern, List<Heading> into, int level) {
         Matcher matcher = pattern.matcher(body);
         while (matcher.find()) {
+            // Templates keep whole sections commented out; those are not real sections and
+            // must never be offered as a place to add something.
+            if (LatexComments.isCommented(body, matcher.start())) {
+                continue;
+            }
             // matcher.end() - 1 is the '{' that opens the title argument.
             int open = matcher.end() - 1;
             int close = findMatchingBrace(body, open);
@@ -123,6 +128,9 @@ public final class SectionSegmenter {
         return title.replaceAll("\\\\[a-zA-Z]+\\*?\\s*", "")
                 .replace("{", "")
                 .replace("}", "")
+                // Escaped specials are markup in the source but plain text in a heading:
+                // "Awards \\& Activities" should read as "Awards & Activities".
+                .replaceAll("\\\\([%&#_$])", "$1")
                 .trim();
     }
 

@@ -83,6 +83,14 @@ public class TailoringRun extends AuditedEntity {
     @Column(name = "error_message", columnDefinition = "text")
     private String errorMessage;
 
+    /** Gap analysis has its own lifecycle: it runs after the rewrite and can be re-run. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gaps_status", nullable = false, length = 16)
+    private GapsStatus gapsStatus;
+
+    @Column(name = "gaps_error", columnDefinition = "text")
+    private String gapsError;
+
     @Column(name = "started_at")
     private Instant startedAt;
 

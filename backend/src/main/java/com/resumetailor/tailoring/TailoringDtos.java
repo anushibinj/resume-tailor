@@ -44,6 +44,8 @@ public final class TailoringDtos {
     public record RunDetail(
             UUID id,
             RunStatus status,
+            GapsStatus gapsStatus,
+            String gapsError,
             ResumeFormat format,
             String company,
             String role,
@@ -59,8 +61,9 @@ public final class TailoringDtos {
             Integer matchScore,
             String errorMessage,
             List<SectionDiff> sections,
-            List<SuggestionResponse> suggestions,
             List<KeywordResponse> keywords,
+            /** Additions not tied to a current requirement, e.g. ones kept from an earlier check. */
+            List<SuggestionResponse> otherSuggestions,
             Instant createdAt,
             Instant startedAt,
             Instant finishedAt) {
@@ -79,20 +82,28 @@ public final class TailoringDtos {
             String rationale) {
     }
 
+    /**
+     * A requirement from the posting and whether the resume covers it.
+     *
+     * @param covered  the model's judgment; {@code evidence} quotes the resume text behind it
+     * @param addition offered when it is not covered, so the gap can be closed in one click
+     */
+    public record KeywordResponse(
+            String keyword,
+            KeywordImportance importance,
+            boolean covered,
+            String evidence,
+            SuggestionResponse addition) {
+    }
+
     public record SuggestionResponse(
             UUID id,
             SuggestionKind kind,
+            String keyword,
             String targetSection,
             String content,
             String rationale,
             SuggestionStatus status) {
-    }
-
-    public record KeywordResponse(
-            String keyword,
-            KeywordImportance importance,
-            boolean presentInOriginal,
-            boolean presentInTailored) {
     }
 
     public record UpdateSuggestionRequest(@NotNull SuggestionStatus status) {

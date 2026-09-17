@@ -10,9 +10,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Turns raw model output into typed results.
@@ -79,20 +82,94 @@ public class LlmResponseParser {
                     textOrNull(node, "rationale")));
         }
 
-        List<TailorOutput.SuggestionItem> suggestions = new ArrayList<>();
-        for (JsonNode node : root.path("suggestions")) {
-            String content = node.path("content").asText("");
-            if (content.isBlank()) {
-                continue;
+        return new TailorOutput(body, changes);
+    }
+
+    /**
+     * Reads the gap analysis, guaranteeing one verdict per requirement in the order asked.
+     *
+     * <p>A model that drops a requirement, or marks one uncovered without saying how to add
+     * it, must not leave a gap the user cannot act on -- those fall back to a plain
+     * section-placed addition named after the requirement itself.
+     */
+    public GapAnalysisResult parseGapAnalysis(String raw, List<JdKeyword> requirements,
+                                              Set<UUID> knownAdditionIds, String modelUsed) {
+        JsonNode root = readJson(raw);
+
+        Map<String, JsonNode> byKeyword = new HashMap<>();
+        for (JsonNode node : root.path("requirements")) {
+            String keyword = node.path("keyword").asText("");
+            if (!keyword.isBlank()) {
+                byKeyword.putIfAbsent(normalizeKeyword(keyword), node);
             }
-            suggestions.add(new TailorOutput.SuggestionItem(
-                    SuggestionKind.parse(node.path("kind").asText(null)),
-                    textOrNull(node, "targetSection"),
-                    content.trim(),
-                    textOrNull(node, "rationale")));
         }
 
-        return new TailorOutput(body, changes, suggestions);
+        List<GapAnalysisResult.RequirementVerdict> verdicts = new ArrayList<>();
+        for (JdKeyword requirement : requirements) {
+            JsonNode node = byKeyword.get(normalizeKeyword(requirement.keyword()));
+            if (node == null) {
+                verdicts.add(fallbackVerdict(requirement));
+                continue;
+            }
+
+            boolean covered = node.path("covered").asBoolean(false);
+            if (covered) {
+                verdicts.add(new GapAnalysisResult.RequirementVerdict(
+                        requirement, true, textOrNull(node, "evidence"), null, null));
+                continue;
+            }
+
+            UUID addressedBy = parseUuid(textOrNull(node, "addressedBy"));
+            if (addressedBy != null && knownAdditionIds.contains(addressedBy)) {
+                verdicts.add(new GapAnalysisResult.RequirementVerdict(
+                        requirement, false, null, addressedBy, null));
+                continue;
+            }
+
+            GapAnalysisResult.ProposedAddition addition = parseAddition(node.path("addition"), requirement);
+            verdicts.add(new GapAnalysisResult.RequirementVerdict(requirement, false, null, null, addition));
+        }
+        return new GapAnalysisResult(verdicts, modelUsed);
+    }
+
+    private GapAnalysisResult.ProposedAddition parseAddition(JsonNode node, JdKeyword requirement) {
+        String label = node.path("label").asText("");
+        String insert = node.path("insert").asText("");
+        if (label.isBlank() && insert.isBlank()) {
+            return defaultAddition(requirement);
+        }
+        String anchor = textOrNull(node, "anchor");
+        return new GapAnalysisResult.ProposedAddition(
+                label.isBlank() ? requirement.keyword() : label.trim(),
+                SuggestionKind.parse(node.path("kind").asText(null)),
+                textOrNull(node, "section"),
+                anchor,
+                // Placement only means something with an anchor to place against.
+                anchor == null ? null : Placement.parse(node.path("placement").asText(null)),
+                insert.isBlank() ? null : insert);
+    }
+
+    private GapAnalysisResult.RequirementVerdict fallbackVerdict(JdKeyword requirement) {
+        return new GapAnalysisResult.RequirementVerdict(
+                requirement, false, null, null, defaultAddition(requirement));
+    }
+
+    /** Last resort: offer the requirement itself as a skill, placed by section. */
+    private GapAnalysisResult.ProposedAddition defaultAddition(JdKeyword requirement) {
+        return new GapAnalysisResult.ProposedAddition(
+                requirement.keyword(), SuggestionKind.SKILL, "Skills", null, null, null);
+    }
+
+    private static String normalizeKeyword(String keyword) {
+        return keyword.strip().toLowerCase();
+    }
+
+    private static UUID parseUuid(String value) {
+        try {
+            return value == null ? null : UUID.fromString(value.trim());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 
     private JsonNode readJson(String raw) {

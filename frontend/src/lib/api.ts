@@ -135,6 +135,7 @@ export const api = {
         body: JSON.stringify({ status }),
       }),
     remove: (id: string) => request<void>(`/api/runs/${id}`, { method: "DELETE" }),
+    recheckGaps: (id: string) => request<RunDetail>(`/api/runs/${id}/gaps`, { method: "POST" }),
     pdfAvailable: (id: string) => request<{ enabled: boolean }>(`/api/runs/${id}/pdf/available`),
     downloadSource: (id: string) => download(`/api/runs/${id}/export`),
     compilePdf: (id: string) => download(`/api/runs/${id}/pdf`, { method: "POST" }),

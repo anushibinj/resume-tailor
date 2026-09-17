@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Copy, Download, FileText } from "lucide-react";
+import { AlertTriangle, Copy, Download, FileText, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -10,9 +10,8 @@ import { toast } from "sonner";
 import { CoverageMeter } from "@/components/coverage-meter";
 import { KeywordMargin } from "@/components/keyword-margin";
 import { SectionDiffView } from "@/components/section-diff-view";
-import { SuggestionMargin } from "@/components/suggestion-margin";
 import { Button, Panel, Spinner, Tag } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, describeError } from "@/lib/api";
 import type { RunDetail, Suggestion } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -27,10 +26,16 @@ export default function RunPage() {
   const run = useQuery({
     queryKey: ["run", id],
     queryFn: () => api.runs.get(id),
-    // Poll only while work is outstanding; stop as soon as the run reaches a terminal state.
+    // Poll while any work is outstanding. The gap check runs after the rewrite is already
+    // saved, so the run can be COMPLETED while its requirements are still being judged.
     refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      return status === "PENDING" || status === "RUNNING" ? 2000 : false;
+      const data = query.state.data;
+      const working =
+        data?.status === "PENDING" ||
+        data?.status === "RUNNING" ||
+        data?.gapsStatus === "PENDING" ||
+        data?.gapsStatus === "RUNNING";
+      return working ? 2000 : false;
     },
   });
 
@@ -39,8 +44,30 @@ export default function RunPage() {
       api.runs.updateSuggestion(id, suggestionId, status),
     onMutate: ({ suggestionId }) => setPendingSuggestion(suggestionId),
     onSuccess: (updated) => queryClient.setQueryData(["run", id], updated),
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: unknown) => toast.error(describeError(error)),
     onSettled: () => setPendingSuggestion(null),
+  });
+
+  const recheck = useMutation({
+    mutationFn: () => api.runs.recheckGaps(id),
+    onSuccess: (updated) => queryClient.setQueryData(["run", id], updated),
+    onError: (error: unknown) => toast.error(describeError(error)),
+  });
+
+  // Applied one at a time (not in parallel) because each accept recomputes the whole
+  // tailored document server-side; overlapping requests could race on that rebuild.
+  const addAllMissing = useMutation({
+    mutationFn: async (suggestionIds: string[]) => {
+      let updated: RunDetail | undefined;
+      for (const suggestionId of suggestionIds) {
+        updated = await api.runs.updateSuggestion(id, suggestionId, "ACCEPTED");
+      }
+      return updated;
+    },
+    onSuccess: (updated) => {
+      if (updated) queryClient.setQueryData(["run", id], updated);
+    },
+    onError: (error: unknown) => toast.error(describeError(error)),
   });
 
   const exportSource = useMutation({
@@ -101,7 +128,9 @@ export default function RunPage() {
 
           {data.status === "COMPLETED" ? (
             <div className="flex flex-wrap items-end gap-6">
-              <CoverageMeter keywords={data.keywords} score={data.matchScore} />
+              {data.gapsStatus === "COMPLETED" ? (
+                <CoverageMeter keywords={data.keywords} score={data.matchScore} />
+              ) : null}
               <div className="flex items-center gap-2">
                 <Button onClick={() => exportSource.mutate()} disabled={exportSource.isPending}>
                   <Download className="size-4" />.{data.format === "LATEX" ? "tex" : "md"}
@@ -157,16 +186,27 @@ export default function RunPage() {
 
           <aside className="space-y-6">
             <Panel className="p-5">
-              <h2 className="mb-4 font-serif text-lg text-ink">What this job asks for</h2>
-              <KeywordMargin keywords={data.keywords} />
-            </Panel>
-
-            <Panel className="p-5">
-              <h2 className="mb-1 font-serif text-lg text-ink">Gaps worth a look</h2>
-              <SuggestionMargin
-                suggestions={data.suggestions}
-                pendingId={pendingSuggestion}
+              <div className="mb-4 flex items-baseline justify-between gap-3">
+                <h2 className="font-serif text-lg text-ink">What this job asks for</h2>
+                {data.gapsStatus === "COMPLETED" ? (
+                  <button
+                    type="button"
+                    onClick={() => recheck.mutate()}
+                    disabled={recheck.isPending}
+                    className="inline-flex items-center gap-1 text-xs text-ink-soft transition-colors hover:text-pencil"
+                  >
+                    <RefreshCw className="size-3" /> Re-check
+                  </button>
+                ) : null}
+              </div>
+              <GapsPane
+                data={data}
                 onDecide={(suggestionId, status) => decide.mutate({ suggestionId, status })}
+                pendingId={pendingSuggestion}
+                onRecheck={() => recheck.mutate()}
+                rechecking={recheck.isPending}
+                onAddAllMissing={(suggestionIds) => addAllMissing.mutate(suggestionIds)}
+                addingAll={addAllMissing.isPending}
               />
             </Panel>
 
@@ -180,6 +220,91 @@ export default function RunPage() {
         </div>
       ) : null}
     </>
+  );
+}
+
+/**
+ * The requirements pane across every state the gap check can be in. Coverage from the
+ * retired keyword matcher is deliberately not shown: those numbers were wrong often
+ * enough that displaying them is worse than offering a re-check.
+ */
+function GapsPane({
+  data,
+  onDecide,
+  pendingId,
+  onRecheck,
+  rechecking,
+  onAddAllMissing,
+  addingAll,
+}: {
+  data: RunDetail;
+  onDecide: (suggestionId: string, status: Suggestion["status"]) => void;
+  pendingId: string | null;
+  onRecheck: () => void;
+  rechecking: boolean;
+  onAddAllMissing: (suggestionIds: string[]) => void;
+  addingAll: boolean;
+}) {
+  if (data.status !== "COMPLETED") {
+    return <p className="text-sm text-ink-soft">Available once the rewrite finishes.</p>;
+  }
+
+  if (data.gapsStatus === "PENDING" || data.gapsStatus === "RUNNING") {
+    return (
+      <div className="flex items-center gap-3">
+        <Spinner />
+        <p className="text-sm text-ink-soft">Checking your resume against the posting…</p>
+      </div>
+    );
+  }
+
+  if (data.gapsStatus === "OUTDATED") {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-ink-soft">
+          This run was checked by the old keyword matcher, which compared text literally and
+          got it wrong often. Re-check it with your model to see what&apos;s really covered.
+        </p>
+        <Button variant="primary" onClick={onRecheck} disabled={rechecking}>
+          {rechecking ? <Spinner className="size-3.5" /> : <RefreshCw className="size-4" />}
+          Re-check with your model
+        </Button>
+        {data.otherSuggestions.length > 0 ? (
+          <KeywordMargin
+            keywords={[]}
+            otherSuggestions={data.otherSuggestions}
+            onDecide={onDecide}
+            pendingId={pendingId}
+            modelUsed={data.modelUsed}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
+  if (data.gapsStatus === "FAILED") {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-ink">The check didn&apos;t finish.</p>
+        <p className="text-sm text-ink-soft">{data.gapsError}</p>
+        <Button variant="quiet" onClick={onRecheck} disabled={rechecking}>
+          {rechecking ? <Spinner className="size-3.5" /> : <RefreshCw className="size-4" />}
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <KeywordMargin
+      keywords={data.keywords}
+      otherSuggestions={data.otherSuggestions}
+      onDecide={onDecide}
+      pendingId={pendingId}
+      modelUsed={data.modelUsed}
+      onAddAllMissing={onAddAllMissing}
+      addingAll={addingAll}
+    />
   );
 }
 

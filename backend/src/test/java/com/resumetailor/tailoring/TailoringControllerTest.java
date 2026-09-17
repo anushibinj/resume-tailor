@@ -51,17 +51,26 @@ class TailoringControllerTest {
     private TailoringService tailoringService;
 
     private static RunDetail detail(RunStatus status) {
+        return detail(status, status == RunStatus.COMPLETED ? GapsStatus.COMPLETED : GapsStatus.PENDING);
+    }
+
+    private static RunDetail detail(RunStatus status, GapsStatus gapsStatus) {
+        SuggestionResponse addition = new SuggestionResponse(
+                SUGGESTION_ID, SuggestionKind.SKILL, "Terraform", "Skills", "Terraform",
+                null, SuggestionStatus.PROPOSED);
         return new RunDetail(
-                RUN_ID, status, ResumeFormat.MARKDOWN, "Acme", "Backend Engineer",
+                RUN_ID, status, gapsStatus, null, ResumeFormat.MARKDOWN, "Acme", "Backend Engineer",
                 UUID.randomUUID(), "Backend-leaning", UUID.randomUUID(), "We need Kubernetes",
                 "## Experience\n- Built billing",
                 status == RunStatus.COMPLETED ? "## Experience\n- Shipped billing on Kubernetes" : null,
                 "gpt-4o-mini", 1200, 800, 75, null,
                 List.of(new SectionDiff("Experience", 2, "- Built billing",
                         "- Shipped billing on Kubernetes", "REWORDED", "Surfaces Kubernetes")),
-                List.of(new SuggestionResponse(SUGGESTION_ID, SuggestionKind.SKILL, "Skills",
-                        "Terraform", "The posting requires it", SuggestionStatus.PROPOSED)),
-                List.of(new KeywordResponse("Kubernetes", KeywordImportance.REQUIRED, false, true)),
+                List.of(
+                        new KeywordResponse("Kubernetes", KeywordImportance.REQUIRED, true,
+                                "Shipped billing on Kubernetes", null),
+                        new KeywordResponse("Terraform", KeywordImportance.REQUIRED, false, null, addition)),
+                List.of(),
                 Instant.now(), Instant.now(), Instant.now());
     }
 
@@ -79,18 +88,24 @@ class TailoringControllerTest {
     }
 
     @Test
-    void returnsTheFullRunIncludingDiffKeywordsAndSuggestions() throws Exception {
+    void returnsTheFullRunWithCoverageAndTheAdditionOfferedForEachGap() throws Exception {
         given(tailoringService.getRun(RUN_ID)).willReturn(detail(RunStatus.COMPLETED));
 
         mockMvc.perform(get("/api/runs/{id}", RUN_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.matchScore").value(75))
+                .andExpect(jsonPath("$.gapsStatus").value("COMPLETED"))
                 .andExpect(jsonPath("$.sections[0].title").value("Experience"))
                 .andExpect(jsonPath("$.sections[0].changeType").value("REWORDED"))
-                .andExpect(jsonPath("$.keywords[0].presentInOriginal").value(false))
-                .andExpect(jsonPath("$.keywords[0].presentInTailored").value(true))
-                // Suggestions must arrive unapplied: the user decides, not the model.
-                .andExpect(jsonPath("$.suggestions[0].status").value("PROPOSED"));
+                // Covered requirements carry the quote the judgment rests on.
+                .andExpect(jsonPath("$.keywords[0].covered").value(true))
+                .andExpect(jsonPath("$.keywords[0].evidence").value("Shipped billing on Kubernetes"))
+                .andExpect(jsonPath("$.keywords[0].addition").doesNotExist())
+                // A gap always arrives with something the user can add in one click.
+                .andExpect(jsonPath("$.keywords[1].covered").value(false))
+                .andExpect(jsonPath("$.keywords[1].addition.content").value("Terraform"))
+                // Nothing is applied until the user says so.
+                .andExpect(jsonPath("$.keywords[1].addition.status").value("PROPOSED"));
     }
 
     @Test
@@ -123,5 +138,25 @@ class TailoringControllerTest {
                         .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Paste a job description to tailor against"));
+    }
+
+    @Test
+    void recheckIsAcceptedAndReportsTheCheckAsPending() throws Exception {
+        given(tailoringService.requestGapRecheck(RUN_ID))
+                .willReturn(detail(RunStatus.COMPLETED, GapsStatus.PENDING));
+
+        mockMvc.perform(post("/api/runs/{id}/gaps", RUN_ID))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.gapsStatus").value("PENDING"));
+    }
+
+    @Test
+    void recheckOnAnUnfinishedRunIsARedable400() throws Exception {
+        willThrow(new BadRequestException("This run has not produced a tailored resume yet"))
+                .given(tailoringService).requestGapRecheck(RUN_ID);
+
+        mockMvc.perform(post("/api/runs/{id}/gaps", RUN_ID))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("This run has not produced a tailored resume yet"));
     }
 }
