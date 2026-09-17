@@ -28,6 +28,9 @@ public class KeywordMatcher {
      */
     private static final Pattern NON_TOKEN = Pattern.compile("[^a-z0-9+#.]+");
 
+    /** Periods immediately before a space or end of input -- sentence punctuation. */
+    private static final Pattern TRAILING_PERIOD = Pattern.compile("\\.+(?=\\s|$)");
+
     /**
      * Flattens resume markup into comparable plain text, padded with spaces so callers
      * can test for word boundaries with a simple contains check.
@@ -40,6 +43,9 @@ public class KeywordMatcher {
         result = LATEX_COMMAND.matcher(result).replaceAll(" ");
         result = result.toLowerCase();
         result = NON_TOKEN.matcher(result).replaceAll(" ");
+        // A period that ends a token is sentence punctuation, not part of the term:
+        // "Kubernetes." must match "Kubernetes" while "Node.js" and ".NET" stay intact.
+        result = TRAILING_PERIOD.matcher(result).replaceAll("");
         result = result.replaceAll("\\s+", " ").trim();
         return " " + result + " ";
     }

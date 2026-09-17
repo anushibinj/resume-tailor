@@ -57,15 +57,17 @@ function ThemeToggle() {
   // The server can't know the viewer's theme, so render the icon only after hydration.
   useEffect(() => setMounted(true), []);
 
-  const isDark = resolvedTheme === "dark";
+  // Before mount the server and client disagree about the theme, so the label and icon
+  // must both stay neutral or React reports a hydration mismatch.
+  const isDark = mounted && resolvedTheme === "dark";
   return (
     <button
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className="rounded-sm p-2 text-ink-soft transition-colors hover:bg-surface-sunk hover:text-ink"
-      aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+      aria-label={mounted ? (isDark ? "Switch to light theme" : "Switch to dark theme") : "Switch theme"}
     >
-      {mounted && isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </button>
   );
 }

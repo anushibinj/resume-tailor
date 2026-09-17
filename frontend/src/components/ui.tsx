@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 type ButtonVariant = "primary" | "quiet" | "ghost" | "danger";
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  primary: "bg-pencil text-white hover:opacity-90 border border-transparent",
+  primary: "bg-pencil text-on-pencil hover:opacity-90 border border-transparent",
   quiet: "bg-surface text-ink border border-rule-strong hover:border-pencil hover:text-pencil",
   ghost: "bg-transparent text-ink-soft border border-transparent hover:text-ink hover:bg-surface-sunk",
   danger: "bg-transparent text-strike border border-transparent hover:bg-strike-soft",

@@ -145,13 +145,6 @@ public class TailoringService {
         return toDetail(runRepository.save(run));
     }
 
-    /** The document as it stands: model output plus every accepted suggestion. */
-    @Transactional(readOnly = true)
-    public String effectiveBody(TailoringRun run) {
-        return applyAccepted(run, suggestionRepository
-                .findAllByRunIdAndStatusOrderByOrdinalAsc(run.getId(), SuggestionStatus.ACCEPTED));
-    }
-
     private void rebuildTailoredDocument(TailoringRun run) {
         if (run.getTailoredBody() == null) {
             return;

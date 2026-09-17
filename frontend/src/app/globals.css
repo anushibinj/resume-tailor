@@ -17,6 +17,9 @@
 
   --pencil: #2f5d8c;
   --pencil-soft: #e4ecf5;
+  /* Text drawn on top of --pencil. Flips with the theme because the accent itself
+     goes from dark blue to light blue. */
+  --on-pencil: #ffffff;
   --strike: #8a4a58;
   --strike-soft: #f4e7ea;
   --gap: #8a6d2b;
@@ -35,6 +38,7 @@
 
   --pencil: #7dabdd;
   --pencil-soft: #1c2c3d;
+  --on-pencil: #10191f;
   --strike: #d094a0;
   --strike-soft: #332226;
   --gap: #d3b166;
@@ -52,6 +56,7 @@
   --color-rule-strong: var(--rule-strong);
   --color-pencil: var(--pencil);
   --color-pencil-soft: var(--pencil-soft);
+  --color-on-pencil: var(--on-pencil);
   --color-strike: var(--strike);
   --color-strike-soft: var(--strike-soft);
   --color-gap: var(--gap);

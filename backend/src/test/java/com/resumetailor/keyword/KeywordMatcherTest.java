@@ -101,6 +101,24 @@ class KeywordMatcherTest {
         }
 
         @Test
+        void matchesAKeywordThatEndsASentence() {
+            // Resume bullets end in periods constantly; "Kubernetes." is still Kubernetes.
+            String resume = matcher.normalize("Ran the platform on Kubernetes. Owned rollout.");
+
+            assertThat(matcher.matches("Kubernetes", resume)).isTrue();
+            assertThat(matcher.matches("rollout", resume)).isTrue();
+        }
+
+        @Test
+        void sentencePunctuationDoesNotBreakSymbolKeywords() {
+            String resume = matcher.normalize("Shipped services in C++. Also used .NET and Node.js.");
+
+            assertThat(matcher.matches("C++", resume)).isTrue();
+            assertThat(matcher.matches(".NET", resume)).isTrue();
+            assertThat(matcher.matches("Node.js", resume)).isTrue();
+        }
+
+        @Test
         void ignoresBlankKeywords() {
             assertThat(matcher.matches("   ", matcher.normalize("anything"))).isFalse();
         }

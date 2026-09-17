@@ -48,6 +48,14 @@ export default function RunPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // PDF export can be switched off entirely (PDF_ENABLED=false); hide the button rather
+  // than offering something that will only ever return an error.
+  const pdf = useQuery({
+    queryKey: ["pdf-available", id],
+    queryFn: () => api.runs.pdfAvailable(id),
+    staleTime: Infinity,
+  });
+
   const exportPdf = useMutation({
     mutationFn: () => api.runs.compilePdf(id),
     onSuccess: () => toast.success("PDF compiled"),
@@ -98,10 +106,20 @@ export default function RunPage() {
                 <Button onClick={() => exportSource.mutate()} disabled={exportSource.isPending}>
                   <Download className="size-4" />.{data.format === "LATEX" ? "tex" : "md"}
                 </Button>
-                <Button variant="primary" onClick={() => exportPdf.mutate()} disabled={exportPdf.isPending}>
-                  {exportPdf.isPending ? <Spinner className="size-3.5" /> : <FileText className="size-4" />}
-                  PDF
-                </Button>
+                {pdf.data?.enabled !== false ? (
+                  <Button
+                    variant="primary"
+                    onClick={() => exportPdf.mutate()}
+                    disabled={exportPdf.isPending}
+                  >
+                    {exportPdf.isPending ? (
+                      <Spinner className="size-3.5" />
+                    ) : (
+                      <FileText className="size-4" />
+                    )}
+                    PDF
+                  </Button>
+                ) : null}
               </div>
             </div>
           ) : null}

@@ -3,6 +3,16 @@
 Open items, roughly in priority order. Mark done rather than deleting, so the history of
 decisions stays readable.
 
+## Already verified
+
+- 100 backend unit / web-layer tests pass with Docker stopped.
+- `ContextWiringTest` boots the whole Spring context against in-memory H2, so the bean
+  graph, async config, controllers and startup seeding are exercised every `mvn test`.
+- Entity `@Column` names were checked against `V1__init.sql` mechanically — all 10 tables
+  line up. That is not the same as Hibernate validating them; see below.
+- The UI was rendered and screenshotted in both light and dark themes, including the run
+  screen with fixture data.
+
 ## Verification still owed
 
 - [ ] **End-to-end run against a real model.** The pipeline has not yet been exercised

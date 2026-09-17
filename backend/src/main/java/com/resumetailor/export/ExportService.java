@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -20,30 +19,32 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 
+/**
+ * Turns a finished run into a downloadable file.
+ *
+ * <p>Deliberately not {@code @Transactional}: compiling a PDF can take a minute, and the
+ * reads and writes it needs each manage their own transaction.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ExportService {
 
-    private static final String KIND_PDF = "PDF";
-
     private final TailoringService tailoringService;
     private final ArtifactRepository artifactRepository;
+    private final ArtifactStore artifactStore;
     private final PdfCompiler pdfCompiler;
     private final PdfProperties pdfProperties;
 
-    @Transactional(readOnly = true)
     public DownloadPayload downloadSource(UUID runId) {
         RunDetail run = requireCompleted(runId);
-        String filename = Filenames.forRun(run.company(), run.role(), run.format().fileExtension());
         return new DownloadPayload(
-                filename,
+                Filenames.forRun(run.company(), run.role(), run.format().fileExtension()),
                 MediaType.TEXT_PLAIN_VALUE + ";charset=UTF-8",
                 run.tailoredSource().getBytes(StandardCharsets.UTF_8));
     }
 
-    /** Compiles and caches a PDF for the run's current content (accepted suggestions included). */
-    @Transactional
+    /** Compiles the run's current content -- accepted suggestions included -- and caches it. */
     public DownloadPayload compilePdf(UUID runId) {
         RunDetail run = requireCompleted(runId);
         PdfCompileResult result = pdfCompiler.compile(run.tailoredSource(), run.format());
@@ -55,17 +56,8 @@ public class ExportService {
         } catch (IOException ex) {
             throw new ServiceUnavailableException("Could not save the compiled PDF: " + ex.getMessage(), ex);
         }
-
-        // One stored PDF per run: a recompile after accepting a suggestion replaces it.
-        artifactRepository.deleteAllByRunId(runId);
-        Artifact artifact = new Artifact();
-        artifact.setRunId(runId);
-        artifact.setKind(KIND_PDF);
-        artifact.setFilePath(target.toAbsolutePath().toString());
-        artifact.setContentType(MediaType.APPLICATION_PDF_VALUE);
-        artifact.setSizeBytes(result.pdfBytes().length);
-        artifact.setCompileLog(result.log());
-        artifactRepository.save(artifact);
+        artifactStore.replacePdf(
+                runId, target.toAbsolutePath().toString(), result.pdfBytes().length, result.log());
 
         return new DownloadPayload(
                 Filenames.forRun(run.company(), run.role(), "pdf"),
@@ -73,18 +65,17 @@ public class ExportService {
                 result.pdfBytes());
     }
 
-    @Transactional(readOnly = true)
     public DownloadPayload downloadPdf(UUID runId) {
         RunDetail run = requireCompleted(runId);
-        Artifact artifact = artifactRepository.findFirstByRunIdAndKindOrderByCreatedAtDesc(runId, KIND_PDF)
+        Artifact artifact = artifactRepository
+                .findFirstByRunIdAndKindOrderByCreatedAtDesc(runId, ArtifactStore.KIND_PDF)
                 .orElseThrow(() -> new BadRequestException(
                         "No PDF has been compiled for this run yet. Compile it first."));
         try {
-            byte[] content = Files.readAllBytes(Path.of(artifact.getFilePath()));
             return new DownloadPayload(
                     Filenames.forRun(run.company(), run.role(), "pdf"),
                     MediaType.APPLICATION_PDF_VALUE,
-                    content);
+                    Files.readAllBytes(Path.of(artifact.getFilePath())));
         } catch (IOException ex) {
             throw new BadRequestException("The compiled PDF is no longer on disk. Compile it again.");
         }
