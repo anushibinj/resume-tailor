@@ -222,3 +222,16 @@ bean graph fails the default suite rather than surfacing at `spring-boot:run`.
   utilities like `font-mono` applied next to it.
 - The diff view sets Markdown in the serif document face and LaTeX in monospace: LaTeX on
   screen is markup, not prose.
+- **`next dev` and `next build` use separate output folders** — `.next-dev` and `.next`,
+  chosen by phase in `frontend/next.config.ts`. Sharing `.next` meant the mandatory
+  `pnpm build` gate overwrote a running dev server's manifests, and every page then
+  returned 500 with `ENOENT … app-paths-manifest.json`. Keep the split; if you change
+  it, `.next-dev` must also stay in `.gitignore`, the ESLint ignores (it is generated
+  code — linting it fails the gate) and `tsconfig.json`'s `include` (Next rewrites the
+  tracked tsconfig on startup if its types path is missing). This applies to Next 15
+  only; Next 16 separates the two itself.
+- Never proxy the backend through the frontend (no `rewrites`, no route handlers that
+  forward). The frontend calls the backend directly with `fetch` at
+  `NEXT_PUBLIC_API_BASE_URL`, defaulting to `http://localhost:8080`, and the backend
+  allows the frontend origin via CORS. `frontend/.env.example` is committed on purpose —
+  the scaffold's `.env*` ignore rule has a `!.env.example` exception for it.

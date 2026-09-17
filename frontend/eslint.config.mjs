@@ -12,7 +12,9 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
-    ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts"],
+    // .next-dev is the dev server's output folder (see next.config.ts); like .next it is
+    // generated code and must not be linted.
+    ignores: ["node_modules/**", ".next/**", ".next-dev/**", "out/**", "build/**", "next-env.d.ts"],
   },
 ];
 

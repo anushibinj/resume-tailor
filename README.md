@@ -197,3 +197,4 @@ no query changes. See `CLAUDE.md`.
 | Port 8080 already in use | Set `SERVER_PORT` in `backend/.env` and point `NEXT_PUBLIC_API_BASE_URL` in `frontend/.env.local` at it |
 | A document fails to compile | The error names the first TeX error; fix it in the source and recompile. Any TeX error fails the export, even when TeX could have written a PDF — that PDF would be missing content |
 | "closed the connection without a usable response" | Your model server dropped the request; check its own logs |
+| Every page 500s with `ENOENT … app-paths-manifest.json` | A stale output folder from before dev and build were separated. Stop `pnpm dev`, run `rm -rf frontend/.next frontend/.next-dev`, start it again |
