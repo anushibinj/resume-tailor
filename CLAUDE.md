@@ -161,9 +161,13 @@ cp backend/.env.example backend/.env       # then set ENCRYPTION_KEY
 openssl rand -base64 32                    # value for ENCRYPTION_KEY
 docker compose up -d postgres
 docker build -t resume-tailor-tex docker/tex   # once, for PDF export
-cd backend  && mvn spring-boot:run -Dspring-boot.run.profiles=dev
+./backend/start-dev.sh                     # mvn spring-boot:run with the dev profile
 cd frontend && pnpm install && pnpm dev
 ```
+
+`backend/start-dev.sh` changes into its own directory before starting, so it runs from
+anywhere; spring-dotenv then finds `backend/.env`. Keep it location-independent — don't
+hardcode an absolute path.
 
 `ENCRYPTION_KEY` is required — `ApiKeyCipher` refuses to start without a valid 32-byte
 base64 key, because it encrypts stored LLM API keys. Changing it makes existing stored

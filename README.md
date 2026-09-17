@@ -63,8 +63,10 @@ docker build -t resume-tailor-tex docker/tex
 **4. Run both sides**
 
 ```bash
-cd backend && mvn spring-boot:run -Dspring-boot.run.profiles=dev
+./backend/start-dev.sh
 ```
+
+That runs `mvn spring-boot:run` with the `dev` profile, and works from any directory.
 
 ```bash
 cd frontend && pnpm install && pnpm dev
