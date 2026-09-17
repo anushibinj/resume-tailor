@@ -6,7 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button, EmptyState, Field, Input, PageHeading, Panel, Spinner, Tag } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, describeError } from "@/lib/api";
 import type { LlmProfile, SaveLlmProfileRequest } from "@/lib/types";
 
 const PRESETS = [
@@ -43,7 +43,7 @@ export default function SettingsPage() {
       setForm(BLANK);
       invalidate();
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: unknown) => toast.error(describeError(error)),
   });
 
   const test = useMutation({
@@ -52,7 +52,7 @@ export default function SettingsPage() {
       result.ok
         ? toast.success(`${result.message} (${result.latencyMs}ms)`)
         : toast.error(result.message),
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: unknown) => toast.error(describeError(error)),
   });
 
   const remove = useMutation({
@@ -61,13 +61,13 @@ export default function SettingsPage() {
       toast.success("Profile deleted");
       invalidate();
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: unknown) => toast.error(describeError(error)),
   });
 
   const setDefault = useMutation({
     mutationFn: api.llmProfiles.setDefault,
     onSuccess: invalidate,
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: unknown) => toast.error(describeError(error)),
   });
 
   const startEdit = (profile: LlmProfile) => {
@@ -234,23 +234,43 @@ export default function SettingsPage() {
               />
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Temperature" hint="Low keeps edits conservative.">
+              {/*
+                step must stay "any". A step value makes the browser accept only numbers
+                on that grid: step="0.1" here rejected 0.25, and step="500" with min 256 on
+                the field below rejected 8000, silently blocking the form and making the
+                spinner walk 256 / 756 / 1256 / 2256.
+              */}
+              <Field label="Temperature" hint="Low keeps edits conservative. 0 to 2.">
                 <Input
                   type="number"
-                  step="0.1"
+                  step="any"
                   min="0"
                   max="2"
-                  value={form.temperature ?? 0.2}
-                  onChange={(e) => setForm({ ...form, temperature: Number(e.target.value) })}
+                  value={form.temperature ?? ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      temperature: e.target.value === "" ? undefined : Number(e.target.value),
+                    })
+                  }
                 />
               </Field>
-              <Field label="Max output tokens">
+              <Field
+                label="Max output tokens"
+                hint="Must fit your whole resume, or the model shortens it to fit."
+              >
                 <Input
                   type="number"
+                  step="any"
                   min="256"
-                  step="500"
-                  value={form.maxOutputTokens ?? 8000}
-                  onChange={(e) => setForm({ ...form, maxOutputTokens: Number(e.target.value) })}
+                  max="200000"
+                  value={form.maxOutputTokens ?? ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      maxOutputTokens: e.target.value === "" ? undefined : Number(e.target.value),
+                    })
+                  }
                 />
               </Field>
             </div>

@@ -27,6 +27,21 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Message worth showing a user: a bean-validation failure arrives as "Validation failed"
+ * with the offending fields listed separately, which on its own says nothing actionable.
+ */
+export function describeError(error: unknown): string {
+  if (error instanceof ApiError) {
+    const fields = Object.entries(error.fieldErrors);
+    if (fields.length > 0) {
+      return fields.map(([field, message]) => `${field}: ${message}`).join("; ");
+    }
+    return error.message;
+  }
+  return error instanceof Error ? error.message : "Something went wrong";
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
