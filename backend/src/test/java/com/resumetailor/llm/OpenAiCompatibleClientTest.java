@@ -115,6 +115,36 @@ class OpenAiCompatibleClientTest {
     }
 
     @Test
+    void sendsAContentLengthInsteadOfAChunkedBody() {
+        // Small OpenAI-compatible servers often cannot read chunked request bodies and
+        // reset the connection instead -- found running the real stack end to end.
+        server.expect(once(), requestTo("https://api.example.com/v1/chat/completions"))
+                .andExpect(header("Content-Length", org.hamcrest.Matchers.matchesPattern("\\d+")))
+                .andRespond(withSuccess(COMPLETION, MediaType.APPLICATION_JSON));
+
+        client.chat(settings(), "system", "user", false);
+
+        server.verify();
+    }
+
+    @Test
+    void aConnectionDroppedMidResponseBecomesAnLlmExceptionNotABare500() {
+        server.expect(once(), requestTo("https://api.example.com/v1/chat/completions"))
+                .andRespond(request -> new org.springframework.mock.http.client.MockClientHttpResponse(
+                        new java.io.InputStream() {
+                            @Override
+                            public int read() throws java.io.IOException {
+                                throw new java.io.IOException("Connection reset");
+                            }
+                        },
+                        org.springframework.http.HttpStatus.OK));
+
+        assertThatThrownBy(() -> client.chat(settings(), "system", "user", false))
+                .isInstanceOf(LlmException.class)
+                .hasMessageContaining("closed the connection");
+    }
+
+    @Test
     void buildsTheEndpointFromVariedBaseUrlSpellings() {
         assertThat(OpenAiCompatibleClient.chatCompletionsUrl("https://api.openai.com/v1"))
                 .isEqualTo("https://api.openai.com/v1/chat/completions");

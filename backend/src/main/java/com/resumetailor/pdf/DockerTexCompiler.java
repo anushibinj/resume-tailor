@@ -61,12 +61,28 @@ public class DockerTexCompiler implements PdfCompiler {
             String containerName = "resume-tailor-tex-" + UUID.randomUUID();
             ProcessOutput output = run(buildCommand(workDir, containerName, source, format), containerName);
 
+            // TeX's own main.log is the useful record: it holds the full error context and the
+            // "runsystem(...)...disabled." lines, none of which reach the terminal output.
+            Path texLog = workDir.resolve(SOURCE_STEM + ".log");
+            String compileLog = Files.exists(texLog)
+                    ? Files.readString(texLog, StandardCharsets.ISO_8859_1)
+                    : output.text();
+
             Path pdf = workDir.resolve(SOURCE_STEM + ".pdf");
-            if (!Files.exists(pdf)) {
-                throw new PdfCompilationException(
-                        "The document did not compile. " + firstUsefulError(output.text()), tail(output.text()));
+            String error = firstTexError(compileLog);
+            if (error == null) {
+                error = firstTexError(output.text());
             }
-            return new PdfCompileResult(Files.readAllBytes(pdf), tail(output.text()));
+            // A PDF existing is not success. In nonstopmode TeX pushes past errors -- an
+            // undefined macro is simply dropped -- and still writes output, so content can
+            // silently vanish from the resume the user is about to send. Any "!" error fails.
+            if (!Files.exists(pdf) || error != null) {
+                throw new PdfCompilationException(
+                        "The document did not compile cleanly. "
+                                + (error != null ? error : "See the compiler log for details."),
+                        tail(compileLog));
+            }
+            return new PdfCompileResult(Files.readAllBytes(pdf), tail(compileLog));
         } catch (IOException ex) {
             throw new ServiceUnavailableException("Could not write the file to compile: " + ex.getMessage(), ex);
         } finally {
@@ -95,8 +111,8 @@ public class DockerTexCompiler implements PdfCompiler {
                     + " --pdf-engine=xelatex -V geometry:margin=1in";
         }
         String engine = latexEngineFor(source);
-        // Two passes so cross-references and page totals settle. nonstopmode keeps going
-        // through recoverable warnings; we judge success by whether a PDF appeared.
+        // Two passes so cross-references and page totals settle. nonstopmode stops TeX
+        // waiting for input on an error; compile() then treats any logged error as failure.
         String pass = engine + " -interaction=nonstopmode -no-shell-escape " + SOURCE_STEM + ".tex";
         return pass + "; " + pass + "; true";
     }
@@ -206,15 +222,22 @@ public class DockerTexCompiler implements PdfCompiler {
         }
     }
 
-    /** Surfaces the first real TeX error, which is far more useful than the last line. */
-    private static String firstUsefulError(String log) {
+    /**
+     * Returns the first real TeX error, which is far more useful than the last line, or
+     * null when there is none. TeX marks errors with a leading "!"; warnings such as
+     * "Overfull \hbox" or "LaTeX Warning" never start with one, so they do not fail a build.
+     */
+    static String firstTexError(String log) {
+        if (log == null) {
+            return null;
+        }
         for (String line : log.split("\n")) {
             String trimmed = line.strip();
             if (trimmed.startsWith("!") && !trimmed.startsWith("!  ==>")) {
                 return trimmed;
             }
         }
-        return "See the compiler log for details.";
+        return null;
     }
 
     private static String tail(String log) {

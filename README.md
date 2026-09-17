@@ -146,8 +146,12 @@ Runs without Docker. Tests that need Postgres or a real TeX container are tagged
 cd backend && mvn verify -Pintegration
 ```
 
-`SchemaValidationIT` boots the whole app against a real Postgres, which is what proves
-the Flyway schema and the JPA entities agree. Run it after any schema change.
+That adds two test classes, both needing Docker running:
+
+- `SchemaValidationIT` boots the whole app against a real Postgres, which is what proves
+  the Flyway schema and the JPA entities agree. Run it after any schema change.
+- `DockerTexCompilerIT` compiles real documents in the sandbox image (build it first) and
+  checks that shell escape is refused and a document with TeX errors fails.
 
 ```bash
 cd frontend && pnpm lint && pnpm build
@@ -188,4 +192,6 @@ no query changes. See `CLAUDE.md`.
 | Run fails with a 401 from your provider | Re-enter the key in Settings, then use "Test" |
 | Run fails with "truncated JSON" | Raise **Max output tokens** in Settings |
 | `Can't reach the backend` in the UI | Backend isn't running, or `NEXT_PUBLIC_API_BASE_URL` is wrong |
-| A document fails to compile | The error names the first TeX error; fix it in the source and recompile |
+| Port 8080 already in use | Set `SERVER_PORT` in `backend/.env` and point `NEXT_PUBLIC_API_BASE_URL` in `frontend/.env.local` at it |
+| A document fails to compile | The error names the first TeX error; fix it in the source and recompile. Any TeX error fails the export, even when TeX could have written a PDF — that PDF would be missing content |
+| "closed the connection without a usable response" | Your model server dropped the request; check its own logs |

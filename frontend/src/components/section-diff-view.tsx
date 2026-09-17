@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 
-import type { SectionDiff } from "@/lib/types";
+import type { ResumeFormat, SectionDiff } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Tag } from "./ui";
 import { WordDiff } from "./word-diff";
@@ -15,17 +15,17 @@ const CHANGE_LABEL: Record<string, string> = {
   EMPHASISED: "Emphasised",
 };
 
-export function SectionDiffView({ sections }: { sections: SectionDiff[] }) {
+export function SectionDiffView({ sections, format }: { sections: SectionDiff[]; format: ResumeFormat }) {
   return (
     <div className="space-y-3">
       {sections.map((section, index) => (
-        <SectionRow key={`${section.title}-${index}`} section={section} />
+        <SectionRow key={`${section.title}-${index}`} section={section} format={format} />
       ))}
     </div>
   );
 }
 
-function SectionRow({ section }: { section: SectionDiff }) {
+function SectionRow({ section, format }: { section: SectionDiff; format: ResumeFormat }) {
   const unchanged = section.originalContent.trim() === section.tailoredContent.trim();
   const [open, setOpen] = useState(!unchanged);
 
@@ -65,6 +65,7 @@ function SectionRow({ section }: { section: SectionDiff }) {
                 original={section.originalContent}
                 tailored={section.tailoredContent}
                 side="original"
+                format={format}
               />
             </Column>
             <Column heading="Tailored">
@@ -72,6 +73,7 @@ function SectionRow({ section }: { section: SectionDiff }) {
                 original={section.originalContent}
                 tailored={section.tailoredContent}
                 side="tailored"
+                format={format}
               />
             </Column>
           </div>

@@ -1,5 +1,6 @@
 package com.resumetailor.llm;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.resumetailor.config.LlmProperties;
@@ -12,6 +13,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -87,6 +89,16 @@ public class OpenAiCompatibleClient {
             payload.put("response_format", Map.of("type", "json_object"));
         }
 
+        // Serialised up front so the request carries a Content-Length. Streaming a Map
+        // produces chunked encoding, which several small OpenAI-compatible servers and
+        // proxies cannot read -- they drop the connection instead of answering.
+        byte[] body;
+        try {
+            body = objectMapper.writeValueAsBytes(payload);
+        } catch (JsonProcessingException ex) {
+            throw new LlmException("Could not build the request for the LLM endpoint: " + ex.getMessage(), ex);
+        }
+
         try {
             return restClient.post()
                     .uri(chatCompletionsUrl(settings.baseUrl()))
@@ -96,7 +108,7 @@ public class OpenAiCompatibleClient {
                             headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + settings.apiKey());
                         }
                     })
-                    .body(payload)
+                    .body(body)
                     .retrieve()
                     // Disable the default throw-on-error so we can read the provider's message body.
                     .onStatus(status -> true, (request, res) -> {
@@ -105,6 +117,12 @@ public class OpenAiCompatibleClient {
         } catch (ResourceAccessException ex) {
             throw new LlmException("Could not reach " + settings.baseUrl()
                     + " -- check the base URL is right and the server is running. (" + ex.getMessage() + ")", ex);
+        } catch (RestClientException ex) {
+            // The server accepted the connection but the exchange broke part-way, e.g. it
+            // reset the connection instead of responding. Still the user's endpoint at fault,
+            // so it must surface as an LlmException with a message, never as a bare 500.
+            throw new LlmException("The LLM endpoint at " + settings.baseUrl()
+                    + " closed the connection without a usable response. (" + ex.getMessage() + ")", ex);
         }
     }
 

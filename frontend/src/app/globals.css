@@ -95,30 +95,37 @@ body {
   color: var(--ink);
 }
 
-/* Proofreading marks: additions underlined in pencil, cuts struck in maroon. */
-.mark-add {
-  background: var(--pencil-soft);
-  color: var(--ink);
-  text-decoration: underline;
-  text-decoration-color: var(--pencil);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 2px;
-  border-radius: 1px;
-}
+/*
+  Component classes live in @layer components so Tailwind utilities can override them.
+  Unlayered CSS beats every layered rule regardless of specificity, so a bare `.document`
+  here silently defeated `font-mono` on LaTeX diffs.
+*/
+@layer components {
+  /* Proofreading marks: additions underlined in pencil, cuts struck in maroon. */
+  .mark-add {
+    background: var(--pencil-soft);
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--pencil);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+    border-radius: 1px;
+  }
 
-.mark-cut {
-  background: var(--strike-soft);
-  color: var(--strike);
-  text-decoration: line-through;
-  text-decoration-thickness: 1px;
-}
+  .mark-cut {
+    background: var(--strike-soft);
+    color: var(--strike);
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+  }
 
-.document {
-  font-family: var(--font-serif);
-  font-size: 0.95rem;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-word;
+  .document {
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2,6 +2,8 @@ package com.resumetailor.common;
 
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -11,7 +13,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Generic mappings plus the catch-all 500.
+ *
+ * <p>Ordered last on purpose. Spring does not choose the most specific handler across
+ * separate advice beans -- it uses the first bean that matches at all -- so if this
+ * class ran first, its {@code Exception} handler would swallow {@code LlmException}
+ * and {@code PdfCompilationException} and discard the message the user needs.
+ */
 @Slf4j
+@Order(Ordered.LOWEST_PRECEDENCE)
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

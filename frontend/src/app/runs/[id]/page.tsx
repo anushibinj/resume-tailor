@@ -144,7 +144,7 @@ export default function RunPage() {
               </TabButton>
             </nav>
 
-            {tab === "review" ? <SectionDiffView sections={data.sections} /> : null}
+            {tab === "review" ? <SectionDiffView sections={data.sections} format={data.format} /> : null}
             {tab === "source" ? <SourceView data={data} /> : null}
             {tab === "posting" ? (
               <Panel className="p-5">

@@ -140,6 +140,16 @@ Engine is chosen by `latexEngineFor()`: `xelatex` when the source uses fontspec 
 `\setmainfont` / unicode-math / polyglossia, otherwise `pdflatex`. Markdown goes through
 pandoc in the same image.
 
+**A PDF existing is not success.** In `nonstopmode` TeX pushes past errors — an undefined
+macro is simply dropped — and still writes a PDF, so content can silently vanish from the
+resume the user sends. `compile()` fails on any `!` error line in TeX's `main.log`, even
+when a PDF was produced. Warnings (`Overfull \hbox`, `LaTeX Warning`) do not fail. Do not
+relax this back to "did a PDF appear".
+
+The stored compile log is TeX's own `main.log`, not the container's terminal output — only
+the log file contains the full error context and the `runsystem(...)...disabled.` lines
+that prove shell escape was refused.
+
 ---
 
 ## Local setup
@@ -165,11 +175,21 @@ keys undecryptable; the user must re-enter them in Settings.
 Postgres or a real TeX container are tagged `integration` and excluded by surefire:
 
 ```bash
-cd backend && mvn verify -Pintegration     # runs SchemaValidationIT (needs Docker)
+cd backend && mvn verify -Pintegration     # adds every *IT class (needs Docker)
 ```
 
-`SchemaValidationIT` is the test that proves Flyway's schema and the JPA entities agree
-(`ddl-auto: validate` fails startup on any mismatch). Run it after any schema change.
+- `SchemaValidationIT` proves Flyway's schema and the JPA entities agree
+  (`ddl-auto: validate` fails startup on any mismatch). Run it after any schema change.
+- `DockerTexCompilerIT` compiles real documents in the sandbox image (needs
+  `docker build -t resume-tailor-tex docker/tex`) and asserts shell escape is refused and
+  a document with TeX errors fails. Run it after touching anything in `pdf`.
+
+Integration tests must be named `*IT` **and** tagged `@Tag("integration")`. Surefire only
+picks up `*Test` by default; the `integration` profile adds `**/*IT.java` to its includes.
+Without that, the profile silently runs zero integration tests — which happened once.
+
+`ContextWiringTest` boots the full context against H2 on every `mvn test`, so a broken
+bean graph fails the default suite rather than surfacing at `spring-boot:run`.
 
 ## Gotchas
 
@@ -181,3 +201,20 @@ cd backend && mvn verify -Pintegration     # runs SchemaValidationIT (needs Dock
   enum, because models return varied spellings.
 - API keys are write-only over HTTP. `LlmProfileResponse` carries `apiKeyMask` only;
   never add a field that returns the key.
+- **Exception handler order matters.** Spring does not pick the most specific handler
+  across separate `@RestControllerAdvice` beans; it uses the first bean that matches at
+  all. `GlobalExceptionHandler` holds the `Exception` catch-all and is
+  `@Order(LOWEST_PRECEDENCE)`; `LlmExceptionHandler` and `PdfExceptionHandler` are
+  `HIGHEST_PRECEDENCE`. A new specific handler in its own class needs an `@Order` ahead
+  of the catch-all, or it will never run. `ExceptionMappingTest` guards this.
+- `OpenAiCompatibleClient` serialises the request body to bytes before sending so the
+  request carries a `Content-Length`. Passing the `Map` straight to `.body()` sends a
+  chunked body, which small OpenAI-compatible servers and proxies reset the connection on.
+- `OpenAiCompatibleClient` has two constructors (one is a test seam), so the production
+  one must stay `@Autowired` — without it Spring cannot choose and the app fails to start.
+- Custom CSS classes in `frontend/src/app/globals.css` (`.document`, `.mark-add`,
+  `.mark-cut`) live inside `@layer components`. Unlayered CSS beats every Tailwind
+  utility regardless of specificity, so a class declared outside a layer silently ignores
+  utilities like `font-mono` applied next to it.
+- The diff view sets Markdown in the serif document face and LaTeX in monospace: LaTeX on
+  screen is markup, not prose.

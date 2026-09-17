@@ -5,27 +5,30 @@ decisions stays readable.
 
 ## Already verified
 
-- 100 backend unit / web-layer tests pass with Docker stopped.
-- `ContextWiringTest` boots the whole Spring context against in-memory H2, so the bean
-  graph, async config, controllers and startup seeding are exercised every `mvn test`.
-- Entity `@Column` names were checked against `V1__init.sql` mechanically — all 10 tables
-  line up. That is not the same as Hibernate validating them; see below.
-- The UI was rendered and screenshotted in both light and dark themes, including the run
-  screen with fixture data.
+- 108 backend tests pass with Docker stopped; 113 with `mvn verify -Pintegration`.
+- `SchemaValidationIT` passes against real Postgres 16 — Flyway's schema and every JPA
+  entity agree under `ddl-auto: validate`.
+- The whole stack was run end to end (real backend, real Postgres, a stand-in
+  OpenAI-compatible server): 48 checks covering key encryption, format detection, the
+  preamble never appearing in any prompt the model received, keyword scoring, accepting /
+  undoing suggestions, JD-analysis caching, run-history snapshots, and failure paths.
+- Real PDFs compiled for both a `.tex` and a `.md` resume, and were inspected: the custom
+  macro defined in the LaTeX preamble rendered, accepted suggestions appeared, `50%`
+  escaped correctly.
+- The PDF sandbox was attacked directly: `\write18` is refused (and TeX's default
+  restricted mode *would* have run a whitelisted command without `-no-shell-escape`),
+  the container has no network, and no containers are left behind.
+- The UI was checked against live data in light and dark themes.
 
 ## Verification still owed
 
-- [ ] **End-to-end run against a real model.** The pipeline has not yet been exercised
-      against a live LLM — the build was done on a machine where Docker could not be
-      started, so Postgres never came up. Work through the checklist in README → Using it.
-- [ ] **Run `mvn verify -Pintegration`.** `SchemaValidationIT` is the check that Flyway's
-      schema and the JPA entities actually agree. Entity/column names were verified by
-      hand but never by Hibernate.
-- [ ] **Compile a real PDF.** `docker build -t resume-tailor-tex docker/tex`, then export
-      from a finished run — for both a `.tex` and a `.md` resume.
-- [ ] Confirm the `texlive/texlive:latest-medium` base carries whatever document class
-      your own resume uses. If not, switch the base image in `docker/tex/Dockerfile` to
-      `texlive/texlive:latest`.
+- [ ] **A run against your real model.** Everything above used a stand-in server, which
+      proves the plumbing but says nothing about how well a given model tailors. Add your
+      profile in Settings, use "Test", then tailor against a real posting.
+- [ ] **Your own resume's document class.** The `texlive/texlive:latest-medium` base
+      compiled a standard `article` resume. If yours uses a class it lacks, the PDF export
+      reports the missing file — switch the base in `docker/tex/Dockerfile` to
+      `texlive/texlive:latest` and rebuild.
 
 ## v2 — multi-user
 

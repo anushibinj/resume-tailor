@@ -123,6 +123,14 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludedGroups combine.self="override"/>
+                            <!--
+                              Surefire only picks up *Test classes by default. Without this the
+                              *IT classes are silently skipped and the profile runs nothing extra.
+                            -->
+                            <includes>
+                                <include>**/*Test.java</include>
+                                <include>**/*IT.java</include>
+                            </includes>
                         </configuration>
                     </plugin>
                 </plugins>
