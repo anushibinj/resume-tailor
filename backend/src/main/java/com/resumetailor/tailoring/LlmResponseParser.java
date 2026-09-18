@@ -7,12 +7,16 @@ import com.resumetailor.keyword.KeywordImportance;
 import com.resumetailor.llm.JsonExtractor;
 import com.resumetailor.llm.LlmException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Turns raw model output into typed results.
@@ -21,6 +25,7 @@ import java.util.Set;
  * unexpected enum spellings are tolerated -- but strict about the one field a run
  * cannot proceed without: {@code tailoredBody}.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class LlmResponseParser {
@@ -79,20 +84,149 @@ public class LlmResponseParser {
                     textOrNull(node, "rationale")));
         }
 
-        List<TailorOutput.SuggestionItem> suggestions = new ArrayList<>();
-        for (JsonNode node : root.path("suggestions")) {
-            String content = node.path("content").asText("");
-            if (content.isBlank()) {
-                continue;
+        return new TailorOutput(body, changes);
+    }
+
+    /**
+     * Reads the gap analysis, guaranteeing one verdict per requirement in the order asked.
+     *
+     * <p>A model that drops a requirement, or marks one uncovered without saying how to add
+     * it, must not leave a gap the user cannot act on -- those fall back to a plain
+     * section-placed addition named after the requirement itself.
+     */
+    public GapAnalysisResult parseGapAnalysis(String raw, List<JdKeyword> requirements,
+                                              Set<UUID> knownAdditionIds, String modelUsed) {
+        JsonNode root = readJson(raw);
+
+        Map<String, JsonNode> byKeyword = new HashMap<>();
+        for (JsonNode node : verdictArray(root)) {
+            String keyword = node.path("keyword").asText("");
+            if (!keyword.isBlank()) {
+                byKeyword.putIfAbsent(normalizeKeyword(keyword), node);
             }
-            suggestions.add(new TailorOutput.SuggestionItem(
-                    SuggestionKind.parse(node.path("kind").asText(null)),
-                    textOrNull(node, "targetSection"),
-                    content.trim(),
-                    textOrNull(node, "rationale")));
         }
 
-        return new TailorOutput(body, changes, suggestions);
+        // A reply that matches few or none of the requirements is not an analysis, and
+        // filling the gaps in from defaults would present fabricated verdicts as the
+        // model's own -- every requirement listed as missing, each with a bare "add the
+        // keyword" suggestion. Fail instead, so the user sees why and can retry.
+        long matched = requirements.stream()
+                .filter(r -> byKeyword.containsKey(normalizeKeyword(r.keyword())))
+                .count();
+        if (requirements.size() >= 2 && matched * 2 < requirements.size()) {
+            log.warn("Gap analysis matched {} of {} requirements; raw reply began: {}",
+                    matched, requirements.size(), preview(raw));
+            throw new LlmException(
+                    "The model answered for only " + matched + " of " + requirements.size()
+                            + " requirements, so the check was discarded rather than reported as gaps. "
+                            + "Its reply was probably cut short or in an unexpected shape -- check "
+                            + "Max output tokens in Settings, then run the check again.");
+        }
+
+        List<GapAnalysisResult.RequirementVerdict> verdicts = new ArrayList<>();
+        for (JdKeyword requirement : requirements) {
+            JsonNode node = byKeyword.get(normalizeKeyword(requirement.keyword()));
+            if (node == null) {
+                verdicts.add(fallbackVerdict(requirement));
+                continue;
+            }
+
+            boolean covered = node.path("covered").asBoolean(false);
+            if (covered) {
+                verdicts.add(new GapAnalysisResult.RequirementVerdict(
+                        requirement, true, textOrNull(node, "evidence"), null, null));
+                continue;
+            }
+
+            UUID addressedBy = parseUuid(textOrNull(node, "addressedBy"));
+            if (addressedBy != null && knownAdditionIds.contains(addressedBy)) {
+                verdicts.add(new GapAnalysisResult.RequirementVerdict(
+                        requirement, false, null, addressedBy, null));
+                continue;
+            }
+
+            GapAnalysisResult.ProposedAddition addition = parseAddition(node.path("addition"), requirement);
+            verdicts.add(new GapAnalysisResult.RequirementVerdict(requirement, false, null, null, addition));
+        }
+        return new GapAnalysisResult(verdicts, modelUsed);
+    }
+
+    private GapAnalysisResult.ProposedAddition parseAddition(JsonNode node, JdKeyword requirement) {
+        String label = node.path("label").asText("");
+        String insert = node.path("insert").asText("");
+        if (label.isBlank() && insert.isBlank()) {
+            return defaultAddition(requirement);
+        }
+        String anchor = textOrNull(node, "anchor");
+        return new GapAnalysisResult.ProposedAddition(
+                label.isBlank() ? requirement.keyword() : label.trim(),
+                SuggestionKind.parse(node.path("kind").asText(null)),
+                textOrNull(node, "section"),
+                anchor,
+                // Placement only means something with an anchor to place against.
+                anchor == null ? null : Placement.parse(node.path("placement").asText(null)),
+                insert.isBlank() ? null : insert);
+    }
+
+    private GapAnalysisResult.RequirementVerdict fallbackVerdict(JdKeyword requirement) {
+        return new GapAnalysisResult.RequirementVerdict(
+                requirement, false, null, null, defaultAddition(requirement));
+    }
+
+    /** Last resort: offer the requirement itself as a skill, placed by section. */
+    private GapAnalysisResult.ProposedAddition defaultAddition(JdKeyword requirement) {
+        return new GapAnalysisResult.ProposedAddition(
+                requirement.keyword(), SuggestionKind.SKILL, "Skills", null, null, null);
+    }
+
+    /**
+     * Finds the array of per-requirement verdicts. Models usually return
+     * {@code {"requirements": [...]}} but sometimes name the field something else, so
+     * fall back to the first array of objects carrying a "keyword". (A bare top-level
+     * array cannot arrive here: JSON mode returns an object, and JsonExtractor pulls out
+     * an object.)
+     */
+    private static JsonNode verdictArray(JsonNode root) {
+        JsonNode named = root.path("requirements");
+        if (named.isArray()) {
+            return named;
+        }
+        for (JsonNode candidate : root) {
+            if (candidate.isArray() && candidate.size() > 0 && candidate.get(0).has("keyword")) {
+                return candidate;
+            }
+        }
+        return root.path("requirements");
+    }
+
+    private static String preview(String raw) {
+        String text = raw == null ? "" : raw.strip().replaceAll("\\s+", " ");
+        return text.length() <= 200 ? text : text.substring(0, 200) + "...";
+    }
+
+    /**
+     * Matching key for a requirement, applied to both sides.
+     *
+     * <p>Parentheticals are dropped because models decorate the keyword they echo back:
+     * "Java (REQUIRED)" when the importance was shown beside it, "Java (Programming
+     * Language)" when glossing. A mismatch here throws the whole analysis away, so this
+     * errs toward matching.
+     */
+    private static String normalizeKeyword(String keyword) {
+        return keyword.replaceAll("\\([^)]*\\)", " ")
+                .replaceAll("[\\s\\p{Punct}]+$", "")
+                .replaceAll("^[\\s\\p{Punct}]+", "")
+                .replaceAll("\\s+", " ")
+                .strip()
+                .toLowerCase();
+    }
+
+    private static UUID parseUuid(String value) {
+        try {
+            return value == null ? null : UUID.fromString(value.trim());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 
     private JsonNode readJson(String raw) {

@@ -3,16 +3,17 @@
 Keep your real resume in one place. Paste a job description. Get a copy rewritten to
 speak to that posting — with every edit marked up so you can check it before you send it.
 
-Nothing is invented. The model may reorder, reword, re-emphasise and trim what you
-already wrote; anything the job asks for that your resume doesn't support is listed
-separately as a suggestion you explicitly accept or dismiss.
+The rewrite itself invents nothing: it reorders, rewords, re-emphasises and trims what
+you already wrote. Anything the posting asks for that your resume doesn't show is listed
+as a gap with an **Add to resume** button, so putting it in is your decision, not the
+model's — including a keyword you want purely to get past an ATS.
 
 - **Your model, your key.** Any OpenAI-compatible endpoint — OpenAI, Groq, Ollama,
   LM Studio, vLLM. The key is encrypted before it's stored and never returned by the API.
 - **LaTeX and Markdown.** The format is detected from the file. For LaTeX, your preamble
   is held back from the model entirely, so your document class, packages and macros come
   back untouched.
-- **Review before you send.** Section-by-section side-by-side diff, a keyword panel
+- **Review before you send.** Section-by-section side-by-side diff, a requirements panel
   showing what the posting wants and what you actually cover, and run history.
 - **PDF without installing TeX.** Compilation happens inside a throwaway Docker
   container.
@@ -95,8 +96,10 @@ Open <http://localhost:3000>.
 3. **Resumes** — upload the `.tex` or `.md` you actually send to employers. Keep several
    if you angle differently for different roles; one is the default.
 4. **Tailor** — pick a resume, paste the posting, run it. Takes 20–60 seconds.
-5. **Review** — read the diff section by section. Check the keyword panel for what the
-   job wants and you don't cover. Accept any suggestion that's genuinely true of you.
+5. **Review** — read the diff section by section. The requirements panel shows what the
+   posting asks for: hover anything marked covered to see the line of your resume it was
+   read from, and use **Add to resume** on the gaps you want to close. Additions land
+   inside your existing lists and can be removed again at any point.
 6. **Export** — download the `.tex`/`.md`, or compile a PDF.
 
 ## How it works
@@ -111,15 +114,28 @@ Next.js (:3000) ──REST──▶ Spring Boot (:8080) ──▶ Postgres (:543
 A run is asynchronous: `POST /api/runs` returns immediately with a `PENDING` run and the
 UI polls until it finishes, so a slow model never holds an HTTP connection open.
 
-Two LLM calls per job description:
+Three LLM calls per run:
 
-1. **Analyse the posting** → company, role, required/preferred/nice keywords,
-   responsibilities. Cached per job description, so re-running costs nothing.
-2. **Tailor the resume** → the rewritten body, a per-section change log with reasons,
-   and suggestions for gaps.
+1. **Analyse the posting** → company, role, required/preferred/nice requirements.
+   Cached per job description, so re-running costs nothing.
+2. **Tailor the resume** → the rewritten body and a per-section change log with reasons.
+3. **Check the result** → which requirements the rewrite covers, with the line of your
+   resume behind each verdict, plus the exact edit that would add each one it misses.
 
-Then **Java** — not the model — checks which keywords actually appear in the result and
-computes the weighted match score. A model shouldn't grade its own rewrite.
+Java does the arithmetic on step 3 (required counts 3, preferred 2, nice-to-have 1) but
+not the judging. Coverage used to be decided by literal keyword matching, which reported
+a Java developer's resume as missing "Java" because the posting called it
+"Java (Programming Language)". Whether a resume covers a requirement is a question about
+meaning.
+
+### How an addition is placed
+
+The model doesn't rewrite your resume to add a skill. It names a snippet already in your
+document and the text to put beside it, so "Go" becomes
+`…, Kafka \& RabbitMQ, Go}` inside the list you already have, in your template's own
+markup. The backend then checks that snippet really exists and isn't inside a commented-out
+block. An addition can only insert, never delete — which is why removing one puts the
+document back exactly as it was.
 
 ### Why the LaTeX preamble never reaches the model
 
@@ -144,8 +160,10 @@ with no network, no shell escape, a memory cap and a hard timeout.
 | `POST` | `/api/resumes/{id}/default` | Make it the default |
 | `POST` | `/api/runs` | Start a tailoring run (202 + run id) |
 | `GET` | `/api/runs` | History, paginated |
-| `GET` | `/api/runs/{id}` | Poll status, diff, keywords, suggestions |
-| `PATCH` | `/api/runs/{id}/suggestions/{sid}` | Accept / dismiss / undo a suggestion |
+| `GET` | `/api/runs/{id}` | Poll status, diff, requirement coverage, additions |
+| `DELETE` | `/api/runs/{id}` | Delete a run and its compiled PDF |
+| `PATCH` | `/api/runs/{id}/suggestions/{sid}` | Add / skip / remove an addition |
+| `POST` | `/api/runs/{id}/gaps` | Re-check the requirements with your model |
 | `GET` | `/api/runs/{id}/export` | Download the tailored `.tex` / `.md` |
 | `POST/GET` | `/api/runs/{id}/pdf` | Compile / download the PDF |
 | `GET/POST` | `/api/llm-profiles` | Manage model connections |

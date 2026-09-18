@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeywordImportance, KeywordResult } from "@/lib/types";
+import { isCovered, type KeywordImportance, type KeywordResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /** Required requirements are drawn tallest, so a missing one is visible at a glance. */
@@ -27,7 +27,7 @@ export function CoverageMeter({
   if (keywords.length === 0) {
     return null;
   }
-  const covered = keywords.filter((k) => k.presentInTailored).length;
+  const covered = keywords.filter(isCovered).length;
 
   return (
     <div className={cn("flex items-end gap-4", className)}>
@@ -36,12 +36,12 @@ export function CoverageMeter({
           <span
             key={keyword.keyword}
             title={`${keyword.keyword} — ${keyword.importance.toLowerCase()}, ${
-              keyword.presentInTailored ? "covered" : "missing"
+              isCovered(keyword) ? "covered" : "not in your resume"
             }`}
             className={cn(
               "w-[5px] rounded-[1px] border",
               TICK_HEIGHT[keyword.importance],
-              keyword.presentInTailored
+              isCovered(keyword)
                 ? "border-pencil bg-pencil"
                 : "border-dashed border-gap bg-transparent",
             )}

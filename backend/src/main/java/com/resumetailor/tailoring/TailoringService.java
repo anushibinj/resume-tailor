@@ -2,12 +2,10 @@ package com.resumetailor.tailoring;
 
 import com.resumetailor.common.BadRequestException;
 import com.resumetailor.common.NotFoundException;
+import com.resumetailor.export.ArtifactStore;
 import com.resumetailor.jd.JobDescription;
 import com.resumetailor.jd.JobDescriptionRepository;
 import com.resumetailor.jd.JobDescriptionService;
-import com.resumetailor.keyword.JdKeyword;
-import com.resumetailor.keyword.KeywordMatch;
-import com.resumetailor.keyword.KeywordMatcher;
 import com.resumetailor.llm.LlmProfileService;
 import com.resumetailor.resume.Resume;
 import com.resumetailor.resume.ResumeParser;
@@ -28,6 +26,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,9 +46,10 @@ public class TailoringService {
     private final JobDescriptionRepository jobDescriptionRepository;
     private final JobDescriptionService jobDescriptionService;
     private final LlmProfileService llmProfileService;
-    private final KeywordMatcher keywordMatcher;
+    private final TailoringRunStore store;
     private final TailoringRunner runner;
     private final CurrentUserProvider currentUser;
+    private final ArtifactStore artifactStore;
 
     @Transactional
     public RunDetail createRun(CreateRunRequest request) {
@@ -74,6 +74,7 @@ public class TailoringService {
         run.setJobDescriptionId(jd.getId());
         run.setLlmProfileId(profileId);
         run.setStatus(RunStatus.PENDING);
+        run.setGapsStatus(GapsStatus.PENDING);
         run.setFormat(resume.getFormat());
         run.setOriginalSource(resume.getSourceText());
         run.setOriginalBody(resume.getBodyText());
@@ -84,13 +85,32 @@ public class TailoringService {
         // Start work only once the row is actually committed, otherwise the async thread
         // can look for a run that is not visible to it yet.
         UUID runId = saved.getId();
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                runner.run(runId);
-            }
-        });
+        afterCommit(() -> runner.run(runId));
         return toDetail(saved);
+    }
+
+    /**
+     * Re-runs the requirement check against the document as it currently stands.
+     *
+     * <p>Needed for runs whose coverage came from the retired keyword matcher, and after a
+     * gap check fails. Additions the user already accepted are kept.
+     */
+    @Transactional
+    public RunDetail requestGapRecheck(UUID id) {
+        TailoringRun run = require(id);
+        if (run.getStatus() != RunStatus.COMPLETED || run.getTailoredBody() == null) {
+            throw new BadRequestException("This run has not produced a tailored resume yet");
+        }
+        if (run.getGapsStatus() == GapsStatus.RUNNING) {
+            throw new BadRequestException("A check is already running for this run");
+        }
+        run.setGapsStatus(GapsStatus.PENDING);
+        run.setGapsError(null);
+        runRepository.save(run);
+
+        UUID runId = run.getId();
+        afterCommit(() -> runner.analyzeGaps(runId));
+        return toDetail(run);
     }
 
     @Transactional(readOnly = true)
@@ -110,7 +130,7 @@ public class TailoringService {
                     jd != null ? jd.getRole() : null,
                     resumeNames.get(run.getResumeId()),
                     run.getFormat(),
-                    run.getMatchScore(),
+                    displayScore(run),
                     run.getCreatedAt(),
                     run.getFinishedAt());
         });
@@ -121,16 +141,18 @@ public class TailoringService {
         return toDetail(require(id));
     }
 
+    /** Removes the run's own DB row (its children cascade) and the compiled PDF it left on disk. */
     @Transactional
     public void deleteRun(UUID id) {
-        runRepository.delete(require(id));
+        TailoringRun run = require(id);
+        artifactStore.deleteFilesForRun(run.getId());
+        runRepository.delete(run);
     }
 
     /**
-     * Accepting or rejecting a suggestion rebuilds the tailored document from the
-     * model's pristine output plus whatever is currently accepted. Nothing is mutated
-     * in place, so every decision is reversible and un-accepting really does remove the
-     * text again.
+     * Accepting or removing an addition rebuilds the document from the model's pristine
+     * output plus whatever is currently accepted. Nothing is edited in place, so every
+     * decision is reversible and removing an addition really does take the text back out.
      */
     @Transactional
     public RunDetail updateSuggestion(UUID runId, UUID suggestionId, SuggestionStatus status) {
@@ -141,42 +163,25 @@ public class TailoringService {
         suggestion.setStatus(status);
         suggestionRepository.save(suggestion);
 
-        rebuildTailoredDocument(run);
-        return toDetail(runRepository.save(run));
+        if (run.getTailoredBody() != null) {
+            run.setTailoredSource(ResumeParser.reassemble(
+                    run.getPreamble(), effectiveBody(run), run.getDocumentTail()));
+            runRepository.save(run);
+        }
+        // Accepting a gap closes it, so the score moves without another model call.
+        store.recomputeScore(runId);
+        return toDetail(run);
     }
 
-    private void rebuildTailoredDocument(TailoringRun run) {
-        if (run.getTailoredBody() == null) {
-            return;
-        }
-        String body = applyAccepted(run, suggestionRepository
-                .findAllByRunIdAndStatusOrderByOrdinalAsc(run.getId(), SuggestionStatus.ACCEPTED));
-        run.setTailoredSource(ResumeParser.reassemble(run.getPreamble(), body, run.getDocumentTail()));
-
-        // Accepting a skill can legitimately raise the match score, so re-evaluate it.
-        List<RunKeyword> stored = keywordRepository.findAllByRunIdOrderByOrdinalAsc(run.getId());
-        if (!stored.isEmpty()) {
-            List<JdKeyword> keywords = stored.stream()
-                    .map(k -> new JdKeyword(k.getKeyword(), k.getImportance()))
-                    .toList();
-            List<KeywordMatch> matches = keywordMatcher.match(keywords, run.getOriginalBody(), body);
-            for (int i = 0; i < stored.size(); i++) {
-                stored.get(i).setPresentInTailored(matches.get(i).presentInTailored());
-            }
-            keywordRepository.saveAll(stored);
-            run.setMatchScore(keywordMatcher.score(matches));
-        }
-    }
-
-    private String applyAccepted(TailoringRun run, List<RunSuggestion> accepted) {
+    /** The model's rewrite plus every addition the user has accepted. */
+    private String effectiveBody(TailoringRun run) {
         String body = run.getTailoredBody();
         if (body == null) {
             return "";
         }
-        for (RunSuggestion suggestion : accepted) {
-            body = SuggestionSplicer.splice(
-                    body, run.getFormat(), suggestion.getKind(),
-                    suggestion.getTargetSection(), suggestion.getContent());
+        for (RunSuggestion accepted : suggestionRepository
+                .findAllByRunIdAndStatusOrderByOrdinalAsc(run.getId(), SuggestionStatus.ACCEPTED)) {
+            body = AdditionApplier.apply(body, run.getFormat(), accepted);
         }
         return body;
     }
@@ -186,14 +191,45 @@ public class TailoringService {
                 .orElseThrow(() -> NotFoundException.of("Run", id));
     }
 
+    /** Coverage from the retired matcher is not shown as a number; the UI offers a re-check. */
+    private static Integer displayScore(TailoringRun run) {
+        return run.getGapsStatus() == GapsStatus.COMPLETED ? run.getMatchScore() : null;
+    }
+
     RunDetail toDetail(TailoringRun run) {
         List<RunChange> changes = changeRepository.findAllByRunIdOrderByOrdinalAsc(run.getId());
         List<RunSuggestion> suggestions = suggestionRepository.findAllByRunIdOrderByOrdinalAsc(run.getId());
-        List<RunKeyword> keywords = keywordRepository.findAllByRunIdOrderByOrdinalAsc(run.getId());
+        Map<UUID, RunSuggestion> suggestionsById = suggestions.stream()
+                .collect(Collectors.toMap(RunSuggestion::getId, s -> s));
 
-        String tailoredBody = applyAccepted(run, suggestions.stream()
-                .filter(s -> s.getStatus() == SuggestionStatus.ACCEPTED)
-                .toList());
+        String tailoredBody = effectiveBody(run);
+        boolean gapsUsable = run.getGapsStatus() == GapsStatus.COMPLETED;
+
+        List<KeywordResponse> keywords = List.of();
+        Set<UUID> linked = new HashSet<>();
+        if (gapsUsable) {
+            keywords = keywordRepository.findAllByRunIdOrderByOrdinalAsc(run.getId()).stream()
+                    .map(keyword -> {
+                        RunSuggestion addition = keyword.getSuggestionId() == null
+                                ? null
+                                : suggestionsById.get(keyword.getSuggestionId());
+                        if (addition != null) {
+                            linked.add(addition.getId());
+                        }
+                        return new KeywordResponse(
+                                keyword.getKeyword(),
+                                keyword.getImportance(),
+                                keyword.isCovered(),
+                                keyword.getEvidence(),
+                                addition == null ? null : toResponse(addition));
+                    })
+                    .toList();
+        }
+
+        List<SuggestionResponse> other = suggestions.stream()
+                .filter(suggestion -> !linked.contains(suggestion.getId()))
+                .map(TailoringService::toResponse)
+                .toList();
 
         JobDescription jd = jobDescriptionRepository.findById(run.getJobDescriptionId()).orElse(null);
         String resumeName = resumeRepository.findById(run.getResumeId()).map(Resume::getName).orElse(null);
@@ -201,6 +237,8 @@ public class TailoringService {
         return new RunDetail(
                 run.getId(),
                 run.getStatus(),
+                run.getGapsStatus(),
+                run.getGapsError(),
                 run.getFormat(),
                 jd != null ? jd.getCompany() : null,
                 jd != null ? jd.getRole() : null,
@@ -215,22 +253,34 @@ public class TailoringService {
                 run.getModelUsed(),
                 run.getPromptTokens(),
                 run.getCompletionTokens(),
-                run.getMatchScore(),
+                displayScore(run),
                 run.getErrorMessage(),
                 SectionDiffBuilder.build(run.getOriginalBody(), tailoredBody, run.getFormat(), changes),
-                suggestions.stream()
-                        .map(s -> new SuggestionResponse(
-                                s.getId(), s.getKind(), s.getTargetSection(),
-                                s.getContent(), s.getRationale(), s.getStatus()))
-                        .toList(),
-                keywords.stream()
-                        .map(k -> new KeywordResponse(
-                                k.getKeyword(), k.getImportance(),
-                                k.isPresentInOriginal(), k.isPresentInTailored()))
-                        .toList(),
+                keywords,
+                other,
                 run.getCreatedAt(),
                 run.getStartedAt(),
                 run.getFinishedAt());
+    }
+
+    private static SuggestionResponse toResponse(RunSuggestion suggestion) {
+        return new SuggestionResponse(
+                suggestion.getId(),
+                suggestion.getKind(),
+                suggestion.getKeyword(),
+                suggestion.getTargetSection(),
+                suggestion.getContent(),
+                suggestion.getRationale(),
+                suggestion.getStatus());
+    }
+
+    private static void afterCommit(Runnable action) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
     }
 
     private Map<UUID, String> resumeNames(List<TailoringRun> runs) {

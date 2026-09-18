@@ -29,6 +29,10 @@ public class JdAnalysis extends BaseEntity {
     @Column(name = "model_used")
     private String modelUsed;
 
+    /** Prompt version that produced this; older extractions are redone. See Prompts. */
+    @Column(name = "prompt_version", nullable = false)
+    private int promptVersion;
+
     @Column(name = "company")
     private String company;
 

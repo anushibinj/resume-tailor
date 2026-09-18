@@ -57,6 +57,13 @@ public class TailoringController {
         return tailoringService.updateSuggestion(id, suggestionId, request.status());
     }
 
+    /** Re-runs the requirement check on its own, keeping additions already accepted. */
+    @PostMapping("/{id}/gaps")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public RunDetail recheckGaps(@PathVariable UUID id) {
+        return tailoringService.requestGapRecheck(id);
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID id) {

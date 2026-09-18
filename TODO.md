@@ -55,8 +55,11 @@ decisions stays readable.
 
 ## Smaller cleanups
 
+- [ ] Gap analysis adds a third model call per run. If that gets expensive on a metered
+      API, it could be folded into the tailoring call — at the cost of the model judging
+      its own rewrite in the same breath as writing it.
+- [ ] `run_suggestions.rationale` is only populated for pre-gap-analysis rows; the
+      current prompt doesn't ask for one. Either ask for it or drop the column.
 - [ ] `SectionSegmenter` only knows the common LaTeX sectioning macros. Add any your own
       template uses if sections come out lumped together.
-- [ ] `KeywordMatcher` tolerates a trailing "s" only. If plurals like "indices" or
-      "analyses" matter for your field, revisit it.
 - [ ] Run history has no search or filter — fine at low volume, worth adding past ~50 runs.

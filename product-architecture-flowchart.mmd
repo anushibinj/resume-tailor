@@ -8,7 +8,7 @@ flowchart TB
         settings["/settings<br/>model connections"]
         resumes["/resumes<br/>base resume library"]
         tailor["/tailor<br/>paste a posting"]
-        runview["run detail<br/>diff · keywords · suggestions"]
+        runview["run detail<br/>diff · requirement coverage · additions"]
     end
 
     subgraph api["Spring Boot (:8080)"]
@@ -26,11 +26,11 @@ flowchart TB
         subgraph pipeline["TailoringRunner (async)"]
             analyse["1 · JdAnalyzer<br/>extract keywords + requirements<br/>cached per job description"]
             rewrite["2 · tailoring call<br/>reorder · reword · trim<br/>never invent"]
-            match["3 · KeywordMatcher<br/>presence + weighted score<br/>computed in Java"]
+            gaps["3 · GapAnalyzer<br/>which requirements the rewrite covers<br/>+ the exact edit to add each gap"]
         end
 
         rebuild["reassemble<br/>original preamble + tailored body"]
-        splice["SuggestionSplicer<br/>applies only ACCEPTED suggestions"]
+        splice["AdditionApplier<br/>applies only ACCEPTED additions<br/>anchored · insert-only"]
     end
 
     db[("Postgres<br/>users · resumes · job_descriptions<br/>tailoring_runs · run_keywords<br/>run_suggestions · llm_profiles")]
@@ -54,7 +54,8 @@ flowchart TB
     ctrl -- "POST /api/runs → 202 PENDING" --> pipeline
     analyse -- "call 1" --> llm
     rewrite -- "call 2 (body only,<br/>never the preamble)" --> llm
-    analyse --> rewrite --> match --> db
+    gaps -- "call 3" --> llm
+    analyse --> rewrite --> gaps --> db
 
     runview -- "poll every 2s until terminal" --> ctrl
     db --> rebuild --> splice --> runview
@@ -62,5 +63,5 @@ flowchart TB
 
     classDef guard fill:#e4ecf5,stroke:#2f5d8c,color:#1d2b2f;
     classDef external fill:#f5efdf,stroke:#8a6d2b,color:#1d2b2f;
-    class owner,jwtfilter,match,splice guard;
+    class owner,jwtfilter,gaps,splice guard;
     class llm,tex,google external;

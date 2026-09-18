@@ -35,6 +35,9 @@ public class JdAnalyzer {
 
     public JdAnalysisResult analyze(JobDescription jd, LlmSettings settings) {
         return jobDescriptionService.findAnalysis(jd.getId())
+                // A cached extraction from an older prompt is not reusable: the current
+                // prompt rejects the qualifiers and non-skills the old one let through.
+                .filter(cached -> cached.getPromptVersion() >= Prompts.JD_ANALYSIS_VERSION)
                 .map(this::fromCache)
                 .orElseGet(() -> callAndCache(jd, settings));
     }
@@ -45,8 +48,10 @@ public class JdAnalyzer {
                 settings, Prompts.JD_ANALYSIS_SYSTEM, Prompts.jdAnalysisUser(jd), true);
         JdAnalysisResult analysis = parser.parseJdAnalysis(result.content(), result.model());
 
-        JdAnalysis entity = new JdAnalysis();
+        // One analysis per job description, so a re-extraction updates the existing row.
+        JdAnalysis entity = jobDescriptionService.findAnalysis(jd.getId()).orElseGet(JdAnalysis::new);
         entity.setJobDescriptionId(jd.getId());
+        entity.setPromptVersion(Prompts.JD_ANALYSIS_VERSION);
         entity.setModelUsed(analysis.modelUsed());
         entity.setCompany(analysis.company());
         entity.setRole(analysis.role());

@@ -107,4 +107,36 @@ class SectionSegmenterTest {
                     .isEqualTo(section.content());
         }
     }
+
+    @Test
+    void ignoresSectionsThatAreCommentedOut() {
+        // Resume templates keep alternative sections commented out. They are invisible in the
+        // PDF, so treating them as real sections offers the user places that do not exist.
+        String body = """
+                \\cvsection{Experience}
+                Engineer at Acme
+
+                % \\cvsection{A Day of My Life}
+                % \\begin{itemize}
+                %   \\item Sleeping
+                % \\end{itemize}
+
+                \\cvsection{Technical Skills}
+                Java
+                """;
+
+        List<ResumeSection> sections = SectionSegmenter.segment(body, ResumeFormat.LATEX);
+
+        assertThat(sections).extracting(ResumeSection::title)
+                .containsExactly("Experience", "Technical Skills");
+    }
+
+    @Test
+    void readsEscapedCharactersInATitleAsText() {
+        String body = "\\cvsection{Awards, Recognition \\& Activities}\nAn award";
+
+        List<ResumeSection> sections = SectionSegmenter.segment(body, ResumeFormat.LATEX);
+
+        assertThat(sections.get(0).title()).isEqualTo("Awards, Recognition & Activities");
+    }
 }

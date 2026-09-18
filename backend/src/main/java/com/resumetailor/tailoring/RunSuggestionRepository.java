@@ -15,4 +15,7 @@ public interface RunSuggestionRepository extends JpaRepository<RunSuggestion, UU
     Optional<RunSuggestion> findByIdAndRunId(UUID id, UUID runId);
 
     void deleteAllByRunId(UUID runId);
+
+    /** Used when regenerating gaps: anything the user accepted is part of their document. */
+    void deleteAllByRunIdAndStatusNot(UUID runId, SuggestionStatus status);
 }
