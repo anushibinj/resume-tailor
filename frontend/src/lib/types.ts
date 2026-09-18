@@ -1,5 +1,20 @@
 /** Mirrors the backend DTOs in com.resumetailor.*. */
 
+export type Role = "NORMAL_USER" | "ORG_ADMIN" | "ADMIN";
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  displayName: string;
+  pictureUrl: string | null;
+  role: Role;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: AuthUser;
+}
+
 export type ResumeFormat = "LATEX" | "MARKDOWN";
 export type RunStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 export type KeywordImportance = "REQUIRED" | "PREFERRED" | "NICE";

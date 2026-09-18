@@ -1,4 +1,7 @@
+import { clearToken, getToken } from "./auth-token";
 import type {
+  AuthResponse,
+  AuthUser,
   CreateRunRequest,
   LlmProfile,
   Page,
@@ -13,6 +16,13 @@ import type {
 } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+
+/** AuthProvider listens for this to drop a stale session without every caller checking status. */
+export const UNAUTHORIZED_EVENT = "resume-tailor:unauthorized";
+
+function isAuthEndpoint(path: string): boolean {
+  return path.startsWith("/api/auth/");
+}
 
 /** Carries the backend's message so the UI can show what to fix, not just "request failed". */
 export class ApiError extends Error {
@@ -29,16 +39,25 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
+  const token = getToken();
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       ...init,
       headers: {
         ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(token && !isAuthEndpoint(path) ? { Authorization: `Bearer ${token}` } : {}),
         ...init?.headers,
       },
     });
   } catch {
     throw new ApiError(0, `Can't reach the backend at ${BASE_URL}. Is it running?`);
+  }
+
+  if (response.status === 401 && !isAuthEndpoint(path)) {
+    // The session token is missing, expired or was invalidated -- drop it and let
+    // AuthProvider send the user back to the sign-in screen instead of failing silently.
+    clearToken();
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   }
 
   if (!response.ok) {
@@ -70,7 +89,20 @@ async function readFieldErrors(response: Response): Promise<Record<string, strin
 }
 
 async function download(path: string, init?: RequestInit): Promise<void> {
-  const response = await fetch(`${BASE_URL}${path}`, init);
+  const token = getToken();
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
+  });
+
+  if (response.status === 401) {
+    clearToken();
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
+
   if (!response.ok) {
     throw new ApiError(response.status, await readErrorMessage(response), await readFieldErrors(response));
   }
@@ -88,6 +120,11 @@ async function download(path: string, init?: RequestInit): Promise<void> {
 }
 
 export const api = {
+  auth: {
+    google: (idToken: string) =>
+      request<AuthResponse>("/api/auth/google", { method: "POST", body: JSON.stringify({ idToken }) }),
+    me: () => request<AuthUser>("/api/auth/me"),
+  },
   resumes: {
     list: () => request<ResumeSummary[]>("/api/resumes"),
     get: (id: string) => request<ResumeDetail>(`/api/resumes/${id}`),
