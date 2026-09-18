@@ -6,11 +6,13 @@ import com.resumetailor.export.ArtifactStore;
 import com.resumetailor.jd.JobDescription;
 import com.resumetailor.jd.JobDescriptionRepository;
 import com.resumetailor.jd.JobDescriptionService;
+import com.resumetailor.keyword.KeywordNormalizer;
 import com.resumetailor.llm.LlmProfileService;
 import com.resumetailor.resume.Resume;
 import com.resumetailor.resume.ResumeParser;
 import com.resumetailor.resume.ResumeRepository;
 import com.resumetailor.resume.ResumeService;
+import com.resumetailor.skill.SkillDefinitionService;
 import com.resumetailor.tailoring.TailoringDtos.CreateRunRequest;
 import com.resumetailor.tailoring.TailoringDtos.KeywordResponse;
 import com.resumetailor.tailoring.TailoringDtos.RunDetail;
@@ -50,6 +52,7 @@ public class TailoringService {
     private final TailoringRunner runner;
     private final CurrentUserProvider currentUser;
     private final ArtifactStore artifactStore;
+    private final SkillDefinitionService skillDefinitionService;
 
     @Transactional
     public RunDetail createRun(CreateRunRequest request) {
@@ -208,7 +211,10 @@ public class TailoringService {
         List<KeywordResponse> keywords = List.of();
         Set<UUID> linked = new HashSet<>();
         if (gapsUsable) {
-            keywords = keywordRepository.findAllByRunIdOrderByOrdinalAsc(run.getId()).stream()
+            List<RunKeyword> stored = keywordRepository.findAllByRunIdOrderByOrdinalAsc(run.getId());
+            Map<String, String> descriptions = skillDefinitionService.descriptionsFor(
+                    stored.stream().map(RunKeyword::getKeyword).toList());
+            keywords = stored.stream()
                     .map(keyword -> {
                         RunSuggestion addition = keyword.getSuggestionId() == null
                                 ? null
@@ -221,7 +227,8 @@ public class TailoringService {
                                 keyword.getImportance(),
                                 keyword.isCovered(),
                                 keyword.getEvidence(),
-                                addition == null ? null : toResponse(addition));
+                                addition == null ? null : toResponse(addition),
+                                descriptions.get(KeywordNormalizer.normalize(keyword.getKeyword())));
                     })
                     .toList();
         }

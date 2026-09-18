@@ -292,4 +292,26 @@ class LlmResponseParserTest {
         assertThat(parser.parseGapAnalysis(raw, List.of(REQUIREMENTS.get(0)), Set.of(), "m")
                 .verdicts().get(0).covered()).isTrue();
     }
+
+    @Test
+    void readsADescriptionWhetherTheRequirementIsCoveredOrNot() {
+        String raw = """
+                {"requirements": [
+                  {"keyword": "Java", "covered": true, "evidence": "Built it in Java",
+                   "description": "A general-purpose language that runs on the JVM."},
+                  {"keyword": "Go", "covered": false, "description": "  A compiled language from Google.  ",
+                   "addition": {"label": "Go", "kind": "SKILL", "section": "Skills", "insert": ", Go"}},
+                  {"keyword": "Kafka", "covered": false, "description": "",
+                   "addition": {"label": "Kafka", "kind": "SKILL", "section": "Skills", "insert": ", Kafka"}}
+                ]}
+                """;
+
+        List<GapAnalysisResult.RequirementVerdict> verdicts =
+                parser.parseGapAnalysis(raw, REQUIREMENTS, Set.of(), "m").verdicts();
+
+        assertThat(verdicts.get(0).description()).isEqualTo("A general-purpose language that runs on the JVM.");
+        assertThat(verdicts.get(1).description()).isEqualTo("A compiled language from Google.");
+        // Asked-for but blank, or never asked for: nothing to store.
+        assertThat(verdicts.get(2).description()).isNull();
+    }
 }

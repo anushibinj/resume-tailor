@@ -73,8 +73,9 @@ class TailoringControllerTest {
                         "- Shipped billing on Kubernetes", "REWORDED", "Surfaces Kubernetes")),
                 List.of(
                         new KeywordResponse("Kubernetes", KeywordImportance.REQUIRED, true,
-                                "Shipped billing on Kubernetes", null),
-                        new KeywordResponse("Terraform", KeywordImportance.REQUIRED, false, null, addition)),
+                                "Shipped billing on Kubernetes", null, null),
+                        new KeywordResponse("Terraform", KeywordImportance.REQUIRED, false, null, addition,
+                                "Infrastructure as code: define cloud resources in files.")),
                 List.of(),
                 Instant.now(), Instant.now(), Instant.now());
     }
@@ -106,6 +107,9 @@ class TailoringControllerTest {
                 .andExpect(jsonPath("$.keywords[0].covered").value(true))
                 .andExpect(jsonPath("$.keywords[0].evidence").value("Shipped billing on Kubernetes"))
                 .andExpect(jsonPath("$.keywords[0].addition").doesNotExist())
+                .andExpect(jsonPath("$.keywords[0].description").doesNotExist())
+                .andExpect(jsonPath("$.keywords[1].description")
+                        .value("Infrastructure as code: define cloud resources in files."))
                 // A gap always arrives with something the user can add in one click.
                 .andExpect(jsonPath("$.keywords[1].covered").value(false))
                 .andExpect(jsonPath("$.keywords[1].addition.content").value("Terraform"))

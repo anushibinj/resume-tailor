@@ -32,8 +32,12 @@ public class GapAnalyzer {
     private final OpenAiCompatibleClient client;
     private final LlmResponseParser parser;
 
-    public GapAnalysisResult analyze(List<JdKeyword> requirements, String originalBody, String tailoredBody,
-                                     ResumeFormat format,
+    /**
+     * @param needDescription requirements missing from the shared skill glossary; the model
+     *                        explains just these, alongside the coverage judgment
+     */
+    public GapAnalysisResult analyze(List<JdKeyword> requirements, List<JdKeyword> needDescription,
+                                     String originalBody, String tailoredBody, ResumeFormat format,
                                      List<Prompts.ExistingAddition> alreadyAdded, LlmSettings settings) {
         if (requirements.isEmpty()) {
             return new GapAnalysisResult(List.of(), null);
@@ -43,7 +47,7 @@ public class GapAnalyzer {
         LlmChatResult result = client.chat(
                 settings,
                 Prompts.gapAnalysisSystem(format),
-                Prompts.gapAnalysisUser(requirements, originalBody, tailoredBody, alreadyAdded),
+                Prompts.gapAnalysisUser(requirements, needDescription, originalBody, tailoredBody, alreadyAdded),
                 true);
 
         // The shape of this reply is the most common thing to go wrong with a new model,

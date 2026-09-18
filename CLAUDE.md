@@ -42,6 +42,11 @@ service filters by `CurrentUserProvider.currentUserId()`.
 - **Never** call `findAll()` / `findById()` on an owned repository from a service.
   Use `findAllByOwnerId…` / `findByIdAndOwnerId`.
 - Adding a user-owned table means adding `owner_id` to it in the same migration.
+- **The one deliberate exception is `skill_definitions`** (`com.resumetailor.skill`): plain
+  descriptions of skills, shared by every user so a term is explained once. It holds
+  general knowledge about a term and nothing about any candidate, resume or posting — keep
+  it that way, and do not put user-derived text in it. It is the only repository that may
+  be queried without an owner.
 
 `com.resumetailor.user.CurrentUserProvider` was the only seam that needed to change to
 add real multi-user auth: `SecurityContextUserProvider` reads the id
@@ -137,7 +142,8 @@ Backend packages under `com.resumetailor` are organised by **feature**, not by l
 | `jd`        | Job descriptions and the cached analysis |
 | `llm`       | LLM profiles, AES-GCM key crypto, OpenAI-compatible client |
 | `tailoring` | Prompts, the three-call pipeline, run entities, gap analysis, diff building |
-| `keyword`   | Requirement types and the weighted coverage score |
+| `keyword`   | Requirement types, the weighted coverage score, `KeywordNormalizer` |
+| `skill`     | The shared (not owner-scoped) glossary of what each skill is |
 | `pdf`       | `PdfCompiler` and the Docker TeX implementation |
 | `export`    | Download endpoints and stored artifacts |
 
@@ -148,7 +154,10 @@ Backend packages under `com.resumetailor` are organised by **feature**, not by l
 2. Work starts in `afterCommit` so the async thread can actually see the row.
 3. `TailoringRunner` (on `tailoringExecutor`): resolve LLM settings → `JdAnalyzer`
    (call 1, cached per JD and per prompt version) → tailoring call (call 2) → save the
-   rewrite → `GapAnalyzer` (call 3) → save requirements and their additions.
+   rewrite → `GapAnalyzer` (call 3) → save requirements and their additions. Call 3 also
+   explains any requirement missing from the shared glossary (`SkillDefinitionService`);
+   only those are asked for, and they are stored after the gaps are saved, in a failure
+   that cannot fail the check.
 4. The frontend polls `GET /api/runs/{id}` every 2s while either the run or the gap check
    is still working.
 

@@ -237,16 +237,26 @@ public final class Prompts {
                 would satisfy a requirement, set "covered": false and "addressedBy" to that
                 addition's id instead of writing a new one.
 
+                PART 3 -- DESCRIPTIONS. The user message lists some requirements under "NEEDS A
+                DESCRIPTION". For exactly those, add a "description" to their entry: one or two
+                plain sentences, under 45 words, saying what the skill, technology or practice is
+                and what it is used for, so someone who has never met the term understands it.
+                Describe the term itself, in general. Say nothing about the candidate, their
+                resume or this job, and do not just repeat the keyword. Requirements that are not
+                on that list must not carry a "description".
+
                 Return ONLY a JSON object, no prose and no code fences:
                 {
                   "requirements": [
                     {"keyword": "<exactly the keyword string you were given, nothing appended>",
                      "covered": true,
-                     "evidence": "verbatim quote from the ORIGINAL resume"},
+                     "evidence": "verbatim quote from the ORIGINAL resume",
+                     "description": "only when listed under NEEDS A DESCRIPTION"},
                     {"keyword": "<exactly as given to you>",
                      "covered": false,
                      "addition": {"label": "Go", "kind": "SKILL", "section": "Technical Skills",
-                                  "anchor": "Docker, Kubernetes", "placement": "AFTER", "insert": ", Go"}}
+                                  "anchor": "Docker, Kubernetes", "placement": "AFTER", "insert": ", Go"},
+                     "description": "only when listed under NEEDS A DESCRIPTION"}
                   ]
                 }
 
@@ -254,14 +264,25 @@ public final class Prompts {
                 """.formatted(examples);
     }
 
-    public static String gapAnalysisUser(List<JdKeyword> requirements, String originalBody,
-                                         String tailoredBody, List<ExistingAddition> alreadyAdded) {
+    /**
+     * @param needDescription the requirements no one has explained yet. Anything already in
+     *                        the shared glossary is left out so the model is not paid to
+     *                        write it again.
+     */
+    public static String gapAnalysisUser(List<JdKeyword> requirements, List<JdKeyword> needDescription,
+                                         String originalBody, String tailoredBody,
+                                         List<ExistingAddition> alreadyAdded) {
         // JSON rather than "- Java (REQUIRED)" lines: asked to echo the keyword exactly,
         // models copied the whole line back, importance included, and nothing matched.
         String list = requirements.stream()
                 .map(k -> "  {\"keyword\": \"" + k.keyword().replace("\"", "'") + "\", \"importance\": \""
                         + k.importance() + "\"}")
                 .collect(Collectors.joining(",\n"));
+        String describe = needDescription.isEmpty()
+                ? "(none -- do not include any \"description\")"
+                : needDescription.stream()
+                        .map(k -> "\"" + k.keyword().replace("\"", "'") + "\"")
+                        .collect(Collectors.joining(", "));
         String added = alreadyAdded.isEmpty()
                 ? "(none)"
                 : alreadyAdded.stream()
@@ -275,6 +296,9 @@ public final class Prompts {
                 %s
                 ]
 
+                NEEDS A DESCRIPTION (give each of these a "description", and no others):
+                %s
+
                 ADDITIONS THE CANDIDATE HAS ALREADY CHOSEN (not present in either text below):
                 %s
 
@@ -283,7 +307,7 @@ public final class Prompts {
 
                 TAILORED RESUME (copy anchors from this):
                 %s
-                """.formatted(list.isBlank() ? "" : list, added, originalBody, tailoredBody);
+                """.formatted(list.isBlank() ? "" : list, describe, added, originalBody, tailoredBody);
     }
 
     /** An accepted addition, offered to the model so it can point at one instead of duplicating it. */

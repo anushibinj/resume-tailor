@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Plus, Undo2, X } from "lucide-react";
+import { useId } from "react";
+import { Check, CircleHelp, Plus, Undo2, X } from "lucide-react";
 
 import { isCovered, type KeywordImportance, type KeywordResult, type Suggestion, type SuggestionStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -113,7 +114,7 @@ export function KeywordMargin({
 
       <p className="border-t border-rule pt-3 text-xs leading-relaxed text-ink-soft">
         Checked by {modelUsed ?? "your model"}. Hover anything covered to see the line of your
-        resume it read that from.
+        resume it read that from, or a missing skill to see what it means.
       </p>
     </div>
   );
@@ -134,18 +135,47 @@ function GapRow({
   const added = isCovered(keyword);
   const dismissed = addition?.status === "REJECTED";
   const busy = (addition ? pendingId === addition.id : false) || Boolean(extraBusy);
+  const helpId = useId();
 
   return (
     <div
+      // `group relative`: hovering anywhere on the row reveals the explanation, which is
+      // positioned against the row.
       className={cn(
-        "rounded-sm border p-2.5",
+        "group relative rounded-sm border p-2.5",
         added ? "border-pencil/40 bg-pencil-soft" : "border-dashed border-gap/50 bg-gap-soft",
         dismissed && "border-solid border-rule bg-surface opacity-60",
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className={cn("text-sm", added ? "text-pencil" : "text-gap", dismissed && "text-ink-soft")}>
-          {keyword.keyword}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className={cn("text-sm", added ? "text-pencil" : "text-gap", dismissed && "text-ink-soft")}>
+            {keyword.keyword}
+          </span>
+          {keyword.description ? (
+            // A real button so the explanation is reachable by keyboard and on touch, where
+            // there is no hover. `peer` lets its own focus (not the row's -- clicking "Add to
+            // resume" would otherwise pin the popover open) show the tooltip below.
+            <button
+              type="button"
+              aria-label={`What is ${keyword.keyword}?`}
+              aria-describedby={helpId}
+              className="peer shrink-0 rounded-full text-ink-faint transition-colors hover:text-ink group-hover:text-ink focus-visible:text-ink focus-visible:outline-none"
+            >
+              <CircleHelp className="size-3.5" />
+            </button>
+          ) : null}
+          {keyword.description ? (
+            <span
+              id={helpId}
+              role="tooltip"
+              // pointer-events-none: the popover overlaps the rows beneath it and must not
+              // get in the way of reaching their buttons.
+              className="pointer-events-none absolute inset-x-0 top-full z-20 mt-1 hidden rounded-sm border border-rule-strong bg-surface p-2.5 text-xs leading-relaxed text-ink-soft shadow-lg group-hover:block peer-focus-visible:block"
+            >
+              {keyword.description}
+            </span>
+          ) : null}
         </span>
         {added ? <Tag tone="pencil">Added</Tag> : null}
       </div>

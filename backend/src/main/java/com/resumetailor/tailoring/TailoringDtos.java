@@ -87,13 +87,16 @@ public final class TailoringDtos {
      *
      * @param covered  the model's judgment; {@code evidence} quotes the resume text behind it
      * @param addition offered when it is not covered, so the gap can be closed in one click
+     * @param description what the requirement is, from the glossary shared by all users;
+     *                    null until some model has explained it
      */
     public record KeywordResponse(
             String keyword,
             KeywordImportance importance,
             boolean covered,
             String evidence,
-            SuggestionResponse addition) {
+            SuggestionResponse addition,
+            String description) {
     }
 
     public record SuggestionResponse(
