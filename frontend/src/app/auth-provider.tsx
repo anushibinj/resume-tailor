@@ -1,12 +1,19 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { Panel, Spinner } from "@/components/ui";
 import { api, UNAUTHORIZED_EVENT } from "@/lib/api";
 import { clearToken, getToken, setToken } from "@/lib/auth-token";
 import type { AuthUser } from "@/lib/types";
+
+// Pulls in Google's hosted script wrapper; only the signed-out branch below ever needs
+// it, so it's kept out of the bundle every already-authenticated visit loads.
+const GoogleSignInButton = dynamic(
+  () => import("@/components/google-sign-in-button").then((mod) => mod.GoogleSignInButton),
+  { loading: () => <p className="text-sm text-ink-faint">Loading Google Sign-In…</p> },
+);
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
