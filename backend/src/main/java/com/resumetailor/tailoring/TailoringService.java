@@ -2,6 +2,7 @@ package com.resumetailor.tailoring;
 
 import com.resumetailor.common.BadRequestException;
 import com.resumetailor.common.NotFoundException;
+import com.resumetailor.export.ArtifactStore;
 import com.resumetailor.jd.JobDescription;
 import com.resumetailor.jd.JobDescriptionRepository;
 import com.resumetailor.jd.JobDescriptionService;
@@ -48,6 +49,7 @@ public class TailoringService {
     private final TailoringRunStore store;
     private final TailoringRunner runner;
     private final CurrentUserProvider currentUser;
+    private final ArtifactStore artifactStore;
 
     @Transactional
     public RunDetail createRun(CreateRunRequest request) {
@@ -139,9 +141,12 @@ public class TailoringService {
         return toDetail(require(id));
     }
 
+    /** Removes the run's own DB row (its children cascade) and the compiled PDF it left on disk. */
     @Transactional
     public void deleteRun(UUID id) {
-        runRepository.delete(require(id));
+        TailoringRun run = require(id);
+        artifactStore.deleteFilesForRun(run.getId());
+        runRepository.delete(run);
     }
 
     /**

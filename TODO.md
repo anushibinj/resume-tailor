@@ -20,6 +20,19 @@ decisions stays readable.
   the container has no network, and no containers are left behind.
 - The UI was checked against live data in light and dark themes.
 
+## Known test failures
+
+- [ ] `LlmResponseParserTest.everyRequirementGetsAVerdictEvenWhenTheModelDropsOne` fails on
+      `mvn clean test` (pre-existing, not caused by the run-deletion work in this change).
+      It feeds a 1-of-3 answered reply against the shared 3-item `REQUIREMENTS` fixture and
+      expects fallback verdicts for the other two, but `LlmResponseParser.parseGapAnalysis`'s
+      newer safety check (`matched * 2 < requirements.size()`) now treats "only 1 of 3
+      answered" as an unusable reply and throws instead -- correctly, per that check's own
+      contract of failing loudly rather than fabricating gaps for a broken model reply. The
+      test looks like it predates that check (or predates `REQUIREMENTS` growing to 3 items)
+      and needs its fixture updated to drop exactly one requirement (e.g. answer Java and Go,
+      leave only Kafka missing) rather than the check being loosened.
+
 ## Verification still owed
 
 - [ ] **A run against your real model.** Everything above used a stand-in server, which

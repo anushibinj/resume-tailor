@@ -1,11 +1,13 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 import { Button, EmptyState, PageHeading, Panel, Spinner, Tag } from "@/components/ui";
-import { api } from "@/lib/api";
-import type { RunStatus } from "@/lib/types";
+import { api, describeError } from "@/lib/api";
+import type { RunStatus, RunSummary } from "@/lib/types";
 import { formatRelative } from "@/lib/utils";
 
 const STATUS_TONE: Record<RunStatus, "neutral" | "pencil" | "strike"> = {
@@ -23,7 +25,24 @@ const STATUS_LABEL: Record<RunStatus, string> = {
 };
 
 export default function RunsPage() {
+  const queryClient = useQueryClient();
   const runs = useQuery({ queryKey: ["runs"], queryFn: () => api.runs.list(0, 50) });
+
+  const remove = useMutation({
+    mutationFn: api.runs.remove,
+    onSuccess: () => {
+      toast.success("Run deleted");
+      queryClient.invalidateQueries({ queryKey: ["runs"] });
+    },
+    onError: (error: unknown) => toast.error(describeError(error)),
+  });
+
+  const confirmDelete = (run: RunSummary) => {
+    const label = run.role ? `the run for ${run.role}` : "this run";
+    if (window.confirm(`Delete ${label}? This removes its history, diff and any compiled PDF. This can't be undone.`)) {
+      remove.mutate(run.id);
+    }
+  };
 
   return (
     <>
@@ -77,6 +96,20 @@ export default function RunsPage() {
                   <div className="mt-1 text-xs text-ink-faint">covered</div>
                 </div>
               ) : null}
+
+              <Button
+                variant="danger"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  confirmDelete(run);
+                }}
+                disabled={remove.isPending}
+                aria-label="Delete run"
+                className="shrink-0 px-2 py-1.5"
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
             </Panel>
           </Link>
         ))}

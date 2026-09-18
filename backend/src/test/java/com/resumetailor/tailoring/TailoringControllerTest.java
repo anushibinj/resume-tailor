@@ -26,7 +26,9 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -158,5 +160,13 @@ class TailoringControllerTest {
         mockMvc.perform(post("/api/runs/{id}/gaps", RUN_ID))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("This run has not produced a tailored resume yet"));
+    }
+
+    @Test
+    void deletingARunReturnsNoContent() throws Exception {
+        mockMvc.perform(delete("/api/runs/{id}", RUN_ID))
+                .andExpect(status().isNoContent());
+
+        then(tailoringService).should().deleteRun(RUN_ID);
     }
 }

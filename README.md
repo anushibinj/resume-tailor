@@ -145,6 +145,7 @@ with no network, no shell escape, a memory cap and a hard timeout.
 | `POST` | `/api/runs` | Start a tailoring run (202 + run id) |
 | `GET` | `/api/runs` | History, paginated |
 | `GET` | `/api/runs/{id}` | Poll status, diff, requirement coverage, additions |
+| `DELETE` | `/api/runs/{id}` | Delete a run and its compiled PDF |
 | `PATCH` | `/api/runs/{id}/suggestions/{sid}` | Add / skip / remove an addition |
 | `POST` | `/api/runs/{id}/gaps` | Re-check the requirements with your model |
 | `GET` | `/api/runs/{id}/export` | Download the tailored `.tex` / `.md` |

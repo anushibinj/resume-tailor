@@ -1,9 +1,9 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Copy, Download, FileText, RefreshCw } from "lucide-react";
+import { AlertTriangle, Copy, Download, FileText, RefreshCw, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -19,6 +19,7 @@ type Tab = "review" | "source" | "posting";
 
 export default function RunPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("review");
   const [pendingSuggestion, setPendingSuggestion] = useState<string | null>(null);
@@ -89,6 +90,22 @@ export default function RunPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const remove = useMutation({
+    mutationFn: () => api.runs.remove(id),
+    onSuccess: () => {
+      toast.success("Run deleted");
+      queryClient.invalidateQueries({ queryKey: ["runs"] });
+      router.push("/runs");
+    },
+    onError: (error: unknown) => toast.error(describeError(error)),
+  });
+
+  const confirmDelete = () => {
+    if (window.confirm("Delete this run? This removes its history, diff and any compiled PDF. This can't be undone.")) {
+      remove.mutate();
+    }
+  };
+
   if (run.isLoading) {
     return (
       <div className="flex items-center gap-3 text-ink-soft">
@@ -152,6 +169,16 @@ export default function RunPage() {
               </div>
             </div>
           ) : null}
+
+          <Button
+            variant="danger"
+            onClick={confirmDelete}
+            disabled={remove.isPending}
+            aria-label="Delete run"
+          >
+            {remove.isPending ? <Spinner className="size-3.5" /> : <Trash2 className="size-4" />}
+            Delete
+          </Button>
         </div>
       </header>
 
