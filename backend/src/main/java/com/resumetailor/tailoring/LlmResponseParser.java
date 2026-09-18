@@ -7,6 +7,7 @@ import com.resumetailor.keyword.KeywordImportance;
 import com.resumetailor.llm.JsonExtractor;
 import com.resumetailor.llm.LlmException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import java.util.UUID;
  * unexpected enum spellings are tolerated -- but strict about the one field a run
  * cannot proceed without: {@code tailoredBody}.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class LlmResponseParser {
@@ -97,11 +99,28 @@ public class LlmResponseParser {
         JsonNode root = readJson(raw);
 
         Map<String, JsonNode> byKeyword = new HashMap<>();
-        for (JsonNode node : root.path("requirements")) {
+        for (JsonNode node : verdictArray(root)) {
             String keyword = node.path("keyword").asText("");
             if (!keyword.isBlank()) {
                 byKeyword.putIfAbsent(normalizeKeyword(keyword), node);
             }
+        }
+
+        // A reply that matches few or none of the requirements is not an analysis, and
+        // filling the gaps in from defaults would present fabricated verdicts as the
+        // model's own -- every requirement listed as missing, each with a bare "add the
+        // keyword" suggestion. Fail instead, so the user sees why and can retry.
+        long matched = requirements.stream()
+                .filter(r -> byKeyword.containsKey(normalizeKeyword(r.keyword())))
+                .count();
+        if (requirements.size() >= 2 && matched * 2 < requirements.size()) {
+            log.warn("Gap analysis matched {} of {} requirements; raw reply began: {}",
+                    matched, requirements.size(), preview(raw));
+            throw new LlmException(
+                    "The model answered for only " + matched + " of " + requirements.size()
+                            + " requirements, so the check was discarded rather than reported as gaps. "
+                            + "Its reply was probably cut short or in an unexpected shape -- check "
+                            + "Max output tokens in Settings, then run the check again.");
         }
 
         List<GapAnalysisResult.RequirementVerdict> verdicts = new ArrayList<>();
@@ -160,8 +179,46 @@ public class LlmResponseParser {
                 requirement.keyword(), SuggestionKind.SKILL, "Skills", null, null, null);
     }
 
+    /**
+     * Finds the array of per-requirement verdicts. Models usually return
+     * {@code {"requirements": [...]}} but sometimes name the field something else, so
+     * fall back to the first array of objects carrying a "keyword". (A bare top-level
+     * array cannot arrive here: JSON mode returns an object, and JsonExtractor pulls out
+     * an object.)
+     */
+    private static JsonNode verdictArray(JsonNode root) {
+        JsonNode named = root.path("requirements");
+        if (named.isArray()) {
+            return named;
+        }
+        for (JsonNode candidate : root) {
+            if (candidate.isArray() && candidate.size() > 0 && candidate.get(0).has("keyword")) {
+                return candidate;
+            }
+        }
+        return root.path("requirements");
+    }
+
+    private static String preview(String raw) {
+        String text = raw == null ? "" : raw.strip().replaceAll("\\s+", " ");
+        return text.length() <= 200 ? text : text.substring(0, 200) + "...";
+    }
+
+    /**
+     * Matching key for a requirement, applied to both sides.
+     *
+     * <p>Parentheticals are dropped because models decorate the keyword they echo back:
+     * "Java (REQUIRED)" when the importance was shown beside it, "Java (Programming
+     * Language)" when glossing. A mismatch here throws the whole analysis away, so this
+     * errs toward matching.
+     */
     private static String normalizeKeyword(String keyword) {
-        return keyword.strip().toLowerCase();
+        return keyword.replaceAll("\\([^)]*\\)", " ")
+                .replaceAll("[\\s\\p{Punct}]+$", "")
+                .replaceAll("^[\\s\\p{Punct}]+", "")
+                .replaceAll("\\s+", " ")
+                .strip()
+                .toLowerCase();
     }
 
     private static UUID parseUuid(String value) {

@@ -253,6 +253,14 @@ bean graph fails the default suite rather than surfacing at `spring-boot:run`.
   `.mark-cut`) live inside `@layer components`. Unlayered CSS beats every Tailwind
   utility regardless of specificity, so a class declared outside a layer silently ignores
   utilities like `font-mono` applied next to it.
+- **Requirements are handed to the gap model as JSON, and matched back leniently.** Shown
+  as `- Java (REQUIRED)` lines, models echo the whole line back as the keyword and every
+  verdict is lost — the judging is fine, the matching isn't. `normalizeKeyword` also
+  strips parentheticals for the same reason. When fewer than half the requirements come
+  back matched, the analysis is discarded with an error rather than defaulted: filling in
+  the rest reports fabricated gaps that look exactly like real ones, and a user acting on
+  them adds text they never needed. `GapAnalyzer` logs the raw reply at DEBUG (on in the
+  dev profile) — check it first when a new model behaves oddly.
 - The diff view sets Markdown in the serif document face and LaTeX in monospace: LaTeX on
   screen is markup, not prose.
 - **`next dev` and `next build` use separate output folders** — `.next-dev` and `.next`,

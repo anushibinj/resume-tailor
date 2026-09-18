@@ -151,23 +151,6 @@ class LlmResponseParserTest {
     }
 
     @Test
-    void everyRequirementGetsAVerdictEvenWhenTheModelDropsOne() {
-        String raw = """
-                {"requirements": [{"keyword": "Java", "covered": true, "evidence": "Java everywhere"}]}
-                """;
-
-        List<GapAnalysisResult.RequirementVerdict> verdicts =
-                parser.parseGapAnalysis(raw, REQUIREMENTS, Set.of(), "m").verdicts();
-
-        assertThat(verdicts).extracting(v -> v.requirement().keyword())
-                .containsExactly("Java", "Go", "Kafka");
-        // A dropped requirement must still be actionable, not silently absent.
-        assertThat(verdicts.get(1).covered()).isFalse();
-        assertThat(verdicts.get(1).addition().label()).isEqualTo("Go");
-        assertThat(verdicts.get(1).addition().kind()).isEqualTo(SuggestionKind.SKILL);
-    }
-
-    @Test
     void anUncoveredRequirementAlwaysComesWithSomethingToAdd() {
         String raw = """
                 {"requirements": [
@@ -228,5 +211,85 @@ class LlmResponseParserTest {
     void reportsMalformedGapJson() {
         assertThatThrownBy(() -> parser.parseGapAnalysis("not json", REQUIREMENTS, Set.of(), "m"))
                 .isInstanceOf(LlmException.class);
+    }
+
+    @Test
+    void discardsAReplyThatAnswersForAlmostNoneOfTheRequirements() {
+        // Observed for real: the reply matched nothing, and filling in defaults reported
+        // every requirement as a gap with a bare "add the keyword" suggestion, which is
+        // indistinguishable in the UI from the model's own judgment.
+        assertThatThrownBy(() -> parser.parseGapAnalysis(
+                "{\"requirements\": []}", REQUIREMENTS, Set.of(), "m"))
+                .isInstanceOf(LlmException.class)
+                .hasMessageContaining("only 0 of 3 requirements")
+                .hasMessageContaining("Max output tokens");
+    }
+
+    @Test
+    void discardsAReplyUnderAnUnexpectedTopLevelKey() {
+        assertThatThrownBy(() -> parser.parseGapAnalysis(
+                "{\"answer\": \"I cannot help with that\"}", REQUIREMENTS, Set.of(), "m"))
+                .isInstanceOf(LlmException.class);
+    }
+
+    @Test
+    void stillToleratesASingleMissingRequirement() {
+        String raw = """
+                {"requirements": [
+                  {"keyword": "Java", "covered": true, "evidence": "Java"},
+                  {"keyword": "Go", "covered": false, "addition": {"label": "Go", "insert": ", Go"}}
+                ]}
+                """;
+
+        List<GapAnalysisResult.RequirementVerdict> verdicts =
+                parser.parseGapAnalysis(raw, REQUIREMENTS, Set.of(), "m").verdicts();
+
+        assertThat(verdicts).hasSize(3);
+        assertThat(verdicts.get(2).addition().label()).isEqualTo("Kafka");
+    }
+
+    @Test
+    void acceptsVerdictsUnderADifferentlyNamedField() {
+        String raw = """
+                {"results": [{"keyword": "Java", "covered": true, "evidence": "Java"},
+                             {"keyword": "Go", "covered": false},
+                             {"keyword": "Kafka", "covered": true, "evidence": "Kafka"}]}
+                """;
+
+        assertThat(parser.parseGapAnalysis(raw, REQUIREMENTS, Set.of(), "m").verdicts())
+                .extracting(v -> v.requirement().keyword())
+                .containsExactly("Java", "Go", "Kafka");
+    }
+
+    @Test
+    void matchesAKeywordTheModelDecoratedWithItsImportance() {
+        // Exactly what a real model returned: it echoed the importance shown beside the
+        // keyword, and every verdict was lost even though the judging was correct.
+        String raw = """
+                {"requirements": [
+                  {"keyword": "Java (REQUIRED)", "covered": true, "evidence": "specializing in Java"},
+                  {"keyword": "Go (PREFERRED)", "covered": false,
+                   "addition": {"label": "Go", "insert": ", Go", "anchor": "Docker"}},
+                  {"keyword": "Kafka (NICE)", "covered": true, "evidence": "Kafka pipelines"}
+                ]}
+                """;
+
+        List<GapAnalysisResult.RequirementVerdict> verdicts =
+                parser.parseGapAnalysis(raw, REQUIREMENTS, Set.of(), "m").verdicts();
+
+        assertThat(verdicts).extracting(GapAnalysisResult.RequirementVerdict::covered)
+                .containsExactly(true, false, true);
+        assertThat(verdicts.get(0).evidence()).isEqualTo("specializing in Java");
+    }
+
+    @Test
+    void matchesAKeywordTheModelGlossed() {
+        String raw = """
+                {"requirements": [{"keyword": "Java (Programming Language)", "covered": true,
+                                   "evidence": "Java throughout"}]}
+                """;
+
+        assertThat(parser.parseGapAnalysis(raw, List.of(REQUIREMENTS.get(0)), Set.of(), "m")
+                .verdicts().get(0).covered()).isTrue();
     }
 }

@@ -44,9 +44,18 @@ public class GapAnalyzer {
                 Prompts.gapAnalysisUser(requirements, resumeBody, alreadyAdded),
                 true);
 
+        // The shape of this reply is the most common thing to go wrong with a new model,
+        // and it is invisible without seeing it. Logged at DEBUG (on in the dev profile).
+        log.debug("Gap analysis raw reply: {}", preview(result.content()));
+
         Set<UUID> knownAdditionIds = alreadyAdded.stream()
                 .map(addition -> UUID.fromString(addition.id()))
                 .collect(Collectors.toSet());
         return parser.parseGapAnalysis(result.content(), requirements, knownAdditionIds, result.model());
+    }
+
+    private static String preview(String content) {
+        String text = content == null ? "" : content.strip();
+        return text.length() <= 1500 ? text : text.substring(0, 1500) + "… (truncated in log)";
     }
 }

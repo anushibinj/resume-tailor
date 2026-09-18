@@ -216,7 +216,7 @@ public final class Prompts {
                 Return ONLY a JSON object, no prose and no code fences:
                 {
                   "requirements": [
-                    {"keyword": "<exactly as given to you>",
+                    {"keyword": "<exactly the keyword string you were given, nothing appended>",
                      "covered": true,
                      "evidence": "verbatim quote from the resume"},
                     {"keyword": "<exactly as given to you>",
@@ -232,9 +232,12 @@ public final class Prompts {
 
     public static String gapAnalysisUser(List<JdKeyword> requirements, String resumeBody,
                                          List<ExistingAddition> alreadyAdded) {
+        // JSON rather than "- Java (REQUIRED)" lines: asked to echo the keyword exactly,
+        // models copied the whole line back, importance included, and nothing matched.
         String list = requirements.stream()
-                .map(k -> "- " + k.keyword() + " (" + k.importance() + ")")
-                .collect(Collectors.joining("\n"));
+                .map(k -> "  {\"keyword\": \"" + k.keyword().replace("\"", "'") + "\", \"importance\": \""
+                        + k.importance() + "\"}")
+                .collect(Collectors.joining(",\n"));
         String added = alreadyAdded.isEmpty()
                 ? "(none)"
                 : alreadyAdded.stream()
@@ -242,15 +245,18 @@ public final class Prompts {
                         .collect(Collectors.joining("\n"));
 
         return """
-                REQUIREMENTS TO CHECK:
+                REQUIREMENTS TO CHECK. Echo each "keyword" back exactly as written here,
+                with nothing added to it:
+                [
                 %s
+                ]
 
                 ADDITIONS THE CANDIDATE HAS ALREADY CHOSEN (not present in the resume below):
                 %s
 
                 RESUME:
                 %s
-                """.formatted(list.isBlank() ? "(none)" : list, added, resumeBody);
+                """.formatted(list.isBlank() ? "" : list, added, resumeBody);
     }
 
     /** An accepted addition, offered to the model so it can point at one instead of duplicating it. */
