@@ -40,14 +40,18 @@ resume-tailor:
     # Base64-encoded 32 random bytes. Encrypts LLM API keys at rest (AES-256-GCM).
     # Generate with: openssl rand -base64 32
     encryption-key: ${ENCRYPTION_KEY:}
-  user:
-    # v1 is single-user: this row is seeded on startup and owns every record.
-    # v2 replaces SingleUserProvider with a SecurityContext-backed implementation.
-    default-email: ${DEFAULT_USER_EMAIL:owner@resume-tailor.local}
-    default-display-name: ${DEFAULT_USER_NAME:Me}
+  google:
+    # OAuth 2.0 Web client ID from Google Cloud Console (APIs & Services > Credentials).
+    # Doubles as the audience every Google Sign-In ID token is verified against.
+    client-id: ${GOOGLE_CLIENT_ID:}
+  jwt:
+    # Signs the app's own session tokens issued after a Google sign-in. At least 32 bytes.
+    # Generate with: openssl rand -base64 48
+    secret: ${JWT_SECRET:}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
   llm:
-    # Seeds a "Default" LLM profile on first start when an API key is present.
-    # Profiles are managed from the Settings UI afterwards.
+    # Seeds a "Default" LLM profile for a brand-new user's first Google sign-in, when an
+    # API key is present. Profiles are managed from the Settings UI afterwards.
     default-base-url: ${LLM_BASE_URL:https://api.openai.com/v1}
     default-api-key: ${LLM_API_KEY:}
     default-model: ${LLM_MODEL:gpt-4o-mini}

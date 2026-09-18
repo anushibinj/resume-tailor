@@ -167,10 +167,14 @@ public class LlmProfileService {
         profile.setApiKeyHint(ApiKeyCipher.hint(plaintextKey));
     }
 
-    /** Seeds a profile from .env on first start so a fresh clone is usable immediately. */
+    /**
+     * Seeds a profile from .env for a brand-new user so a fresh clone is usable right
+     * after their first Google sign-in. Takes the owner id explicitly rather than reading
+     * {@link CurrentUserProvider} because it runs from {@code AuthController} before that
+     * user's own request has an authenticated security context.
+     */
     @Transactional
-    public void seedDefaultProfile() {
-        UUID ownerId = currentUser.currentUserId();
+    public void seedDefaultProfile(UUID ownerId) {
         if (repository.countByOwnerId(ownerId) > 0) {
             return;
         }
