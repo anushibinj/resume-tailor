@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -30,8 +31,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Verifies the HTTP contract the frontend depends on. No database involved. */
+/**
+ * Verifies the HTTP contract the frontend depends on. No database involved.
+ *
+ * <p>{@code addFilters = false} skips the real {@code SecurityConfig} filter chain: this
+ * test is about the controller/service contract, not auth, and every request here would
+ * otherwise need a bearer token just to reach the assertions below.
+ */
 @WebMvcTest(ResumeController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @EnableAutoConfiguration(exclude = DataSourceAutoConfiguration.class)
 @EnableConfigurationProperties(CorsProperties.class)
 class ResumeControllerTest {

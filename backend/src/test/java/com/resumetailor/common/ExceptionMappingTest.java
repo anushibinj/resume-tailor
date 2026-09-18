@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,8 +30,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@code @RestControllerAdvice} beans -- it uses the first bean that matches at all. A
  * catch-all ordered ahead of the specific handlers turns every one of these into a
  * generic 500 and throws away the message the user needs. Found running the real stack.
+ *
+ * <p>{@code addFilters = false}: this is about exception-to-status mapping, not auth --
+ * see the note on {@code ResumeControllerTest}.
  */
 @WebMvcTest(ExportController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @EnableAutoConfiguration(exclude = DataSourceAutoConfiguration.class)
 @EnableConfigurationProperties(CorsProperties.class)
 class ExceptionMappingTest {

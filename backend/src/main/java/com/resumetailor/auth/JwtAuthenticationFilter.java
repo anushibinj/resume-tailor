@@ -9,7 +9,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -23,8 +22,13 @@ import java.util.List;
  * <p>Leaves the context empty on a missing or invalid token rather than rejecting the
  * request itself -- {@code SecurityConfig}'s {@code anyRequest().authenticated()} is
  * what turns an empty context into a 401 for anything that needs one.
+ *
+ * <p>Deliberately not a {@code @Component}: it implements {@code Filter}, and
+ * {@code @WebMvcTest} slices always pull in every {@code Filter} bean regardless of
+ * {@code addFilters = false}, which would drag {@link JwtService} (and its required
+ * JWT_SECRET) into controller-only test slices. {@code SecurityConfig} constructs it
+ * directly instead.
  */
-@Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
