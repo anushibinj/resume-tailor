@@ -81,6 +81,24 @@ class SecurityConfigTest {
     }
 
     @Test
+    void meWithNoTokenIs401NotA500() throws Exception {
+        mockMvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Authentication required"));
+    }
+
+    @Test
+    void meWithAValidTokenReturnsTheProfileSoASessionSurvivesAReload() throws Exception {
+        User user = userRepository.save(new User(
+                "restore@example.com", "Restore User", "google-sub-restore", null, Role.NORMAL_USER));
+        String token = jwtService.issue(user);
+
+        mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("restore@example.com"));
+    }
+
+    @Test
     void actuatorHealthIsReachableWithoutAToken() throws Exception {
         mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
     }

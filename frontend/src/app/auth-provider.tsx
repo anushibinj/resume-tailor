@@ -59,7 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus("authenticated");
       })
       .catch(() => {
-        clearToken();
+        // A 401 already cleared the token inside api.ts. Anything else (backend down or
+        // restarting) leaves a still-valid token in place so the next reload can restore it.
         setStatus("unauthenticated");
       });
   }, []);
