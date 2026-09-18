@@ -20,8 +20,14 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080"
 /** AuthProvider listens for this to drop a stale session without every caller checking status. */
 export const UNAUTHORIZED_EVENT = "resume-tailor:unauthorized";
 
-function isAuthEndpoint(path: string): boolean {
-  return path.startsWith("/api/auth/");
+/**
+ * The Google sign-in exchange is the only call made without a session, so it is the only one
+ * that skips the bearer header and the 401 handling. /api/auth/me is *not* exempt: it
+ * identifies the caller from the token, so it must send it (it once didn't, and every reload
+ * signed the user out).
+ */
+function isPublicAuthEndpoint(path: string): boolean {
+  return path === "/api/auth/google";
 }
 
 /** Carries the backend's message so the UI can show what to fix, not just "request failed". */
@@ -60,7 +66,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: {
         ...(init?.body ? { "Content-Type": "application/json" } : {}),
-        ...(token && !isAuthEndpoint(path) ? { Authorization: `Bearer ${token}` } : {}),
+        ...(token && !isPublicAuthEndpoint(path) ? { Authorization: `Bearer ${token}` } : {}),
         ...init?.headers,
       },
     });
@@ -68,7 +74,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(0, `Can't reach the backend at ${BASE_URL}. Is it running?`);
   }
 
-  if (response.status === 401 && !isAuthEndpoint(path)) {
+  if (response.status === 401 && !isPublicAuthEndpoint(path)) {
     // The session token is missing, expired or was invalidated -- drop it and let
     // AuthProvider send the user back to the sign-in screen instead of failing silently.
     clearToken();

@@ -105,9 +105,21 @@ public final class Prompts {
                 %s
                 6. Keep the overall structure and roughly the same length. Do not drop a whole
                    section unless it is plainly irrelevant to this role.
+                7. The candidate's identity stays theirs. The headline, tagline or title line at
+                   the top of the resume keeps the candidate's OWN title and the stack they list
+                   there. The role the job is hiring for is NOT the candidate's title: never write
+                   it (or a more senior version of it) as their headline or job title.
+                8. Lists of skills or technologies -- in a headline, tagline, summary or skills
+                   section -- may be reordered or shortened to lead with what this job cares about.
+                   They may NEVER gain an item. If the job asks for C++ and the resume does not
+                   already say C++, C++ does not appear anywhere in your output. A Java developer
+                   stays a Java developer however long the job's keyword list is.
+                9. Leave comment lines (LaTeX lines starting with %%) exactly as they are. Do not
+                   delete them and do not uncomment them.
 
                 If the job wants something the resume does not support, leave it out. A separate
-                step offers it to the candidate, who decides whether to add it.
+                step shows it to the candidate as a gap and offers to add it; the candidate, not
+                you, decides whether it goes in.
 
                 Return ONLY a JSON object, no prose and no code fences, shaped exactly like this:
                 {
@@ -129,7 +141,7 @@ public final class Prompts {
                 .collect(Collectors.joining("\n"));
 
         return """
-                TARGET ROLE: %s at %s
+                THE JOB BEING APPLIED FOR (this is NOT the candidate's own title): %s at %s
 
                 WHAT THIS JOB REQUIRES:
                 %s
@@ -137,7 +149,9 @@ public final class Prompts {
                 KEY RESPONSIBILITIES:
                 %s
 
-                KEYWORDS THE POSTING USES (weave in the ones the resume genuinely supports):
+                KEYWORDS THE POSTING USES. For reference only. Use one only where the resume
+                ALREADY shows that skill; never add one to a headline, tagline or skills list just
+                because the posting lists it. The ones the resume lacks are handled separately.
                 %s
 
                 CANDIDATE'S CURRENT RESUME BODY:
@@ -176,19 +190,26 @@ public final class Prompts {
                 """;
 
         return """
-                You check a tailored resume against a job posting's requirements, and for each
-                requirement the resume does not cover you write the exact edit that would add it.
+                You check a candidate's resume against a job posting's requirements, and for each
+                requirement it does not cover you write the exact edit that would add it.
 
-                PART 1 -- COVERAGE. For each requirement, decide whether this resume would
+                You are given two texts: the candidate's ORIGINAL resume, and a TAILORED version
+                of it that was rewritten for this job. Coverage is judged on the ORIGINAL only.
+                It is what the candidate genuinely has. The rewrite is meant to only reorder and
+                reword it, but it can slip and add skills or titles the candidate never had; such
+                text is never evidence. The TAILORED text is only where additions are anchored.
+
+                PART 1 -- COVERAGE. For each requirement, decide whether the ORIGINAL resume would
                 satisfy a recruiter looking for it. Judge by MEANING, not by string matching:
                 - A specific technology covers the general skill it belongs to. "Spring Boot
                   microservices in Java" covers "Java", "backend development" and "microservices".
                 - Equivalents and synonyms count. "Jenkins pipelines" covers "CI/CD". "Led a team
                   of six" covers "team leadership". "GCP" covers "Google Cloud".
                 - Seniority and scale stated anywhere in the resume count for requirements about them.
-                - Set "covered": true only when you can quote the resume text that shows it.
-                  Put that quote, copied verbatim and under 120 characters, in "evidence".
-                - If the resume never shows it, "covered": false. Do not guess.
+                - Set "covered": true only when you can quote the ORIGINAL resume text that shows
+                  it. Put that quote, copied verbatim and under 120 characters, in "evidence".
+                - If the original never shows it, "covered": false, even when the tailored text
+                  mentions it. Do not guess.
 
                 PART 2 -- ADDITIONS. For EVERY requirement with "covered": false, give an
                 "addition" that would put it in the resume. Do this for every one of them, even
@@ -196,7 +217,7 @@ public final class Prompts {
                 decides what to keep, not you. Never refuse an addition and never leave it out.
 
                 An addition is anchored, so it can only insert text:
-                  "anchor"    text copied EXACTLY from the resume to attach to
+                  "anchor"    text copied EXACTLY from the TAILORED resume to attach to
                   "placement" "AFTER" or "BEFORE" that anchor
                   "insert"    the exact markup to insert there
                   "label"     short human-readable name of what is being added, e.g. "Go"
@@ -204,25 +225,38 @@ public final class Prompts {
                   "section"   the section it belongs in
 
                 %s
-                Prefer extending a list the resume already has, shortest edit that works. Keep the
-                phrasing consistent with the resume's voice. If no safe anchor exists, omit
-                "anchor" and give "label", "kind" and "section" only.
+                Prefer extending a list the resume already has, shortest edit that works. Put a
+                technology where a reader looks for one: the list in the headline or tagline if it
+                has one, otherwise the skills section. Put methodologies and working-style
+                requirements ("agile", "team leadership") in the summary if the resume has one.
+                Keep the phrasing consistent with the resume's voice. If no safe anchor exists,
+                omit "anchor" and give "label", "kind" and "section" only.
 
                 The candidate may have already chosen additions of their own; they are listed
-                below if so. Those are NOT part of the resume text you are judging. If one of them
+                below if so. Those are NOT part of either resume text below. If one of them
                 would satisfy a requirement, set "covered": false and "addressedBy" to that
                 addition's id instead of writing a new one.
+
+                PART 3 -- DESCRIPTIONS. The user message lists some requirements under "NEEDS A
+                DESCRIPTION". For exactly those, add a "description" to their entry: one or two
+                plain sentences, under 45 words, saying what the skill, technology or practice is
+                and what it is used for, so someone who has never met the term understands it.
+                Describe the term itself, in general. Say nothing about the candidate, their
+                resume or this job, and do not just repeat the keyword. Requirements that are not
+                on that list must not carry a "description".
 
                 Return ONLY a JSON object, no prose and no code fences:
                 {
                   "requirements": [
                     {"keyword": "<exactly the keyword string you were given, nothing appended>",
                      "covered": true,
-                     "evidence": "verbatim quote from the resume"},
+                     "evidence": "verbatim quote from the ORIGINAL resume",
+                     "description": "only when listed under NEEDS A DESCRIPTION"},
                     {"keyword": "<exactly as given to you>",
                      "covered": false,
                      "addition": {"label": "Go", "kind": "SKILL", "section": "Technical Skills",
-                                  "anchor": "Docker, Kubernetes", "placement": "AFTER", "insert": ", Go"}}
+                                  "anchor": "Docker, Kubernetes", "placement": "AFTER", "insert": ", Go"},
+                     "description": "only when listed under NEEDS A DESCRIPTION"}
                   ]
                 }
 
@@ -230,7 +264,13 @@ public final class Prompts {
                 """.formatted(examples);
     }
 
-    public static String gapAnalysisUser(List<JdKeyword> requirements, String resumeBody,
+    /**
+     * @param needDescription the requirements no one has explained yet. Anything already in
+     *                        the shared glossary is left out so the model is not paid to
+     *                        write it again.
+     */
+    public static String gapAnalysisUser(List<JdKeyword> requirements, List<JdKeyword> needDescription,
+                                         String originalBody, String tailoredBody,
                                          List<ExistingAddition> alreadyAdded) {
         // JSON rather than "- Java (REQUIRED)" lines: asked to echo the keyword exactly,
         // models copied the whole line back, importance included, and nothing matched.
@@ -238,6 +278,11 @@ public final class Prompts {
                 .map(k -> "  {\"keyword\": \"" + k.keyword().replace("\"", "'") + "\", \"importance\": \""
                         + k.importance() + "\"}")
                 .collect(Collectors.joining(",\n"));
+        String describe = needDescription.isEmpty()
+                ? "(none -- do not include any \"description\")"
+                : needDescription.stream()
+                        .map(k -> "\"" + k.keyword().replace("\"", "'") + "\"")
+                        .collect(Collectors.joining(", "));
         String added = alreadyAdded.isEmpty()
                 ? "(none)"
                 : alreadyAdded.stream()
@@ -251,12 +296,18 @@ public final class Prompts {
                 %s
                 ]
 
-                ADDITIONS THE CANDIDATE HAS ALREADY CHOSEN (not present in the resume below):
+                NEEDS A DESCRIPTION (give each of these a "description", and no others):
                 %s
 
-                RESUME:
+                ADDITIONS THE CANDIDATE HAS ALREADY CHOSEN (not present in either text below):
                 %s
-                """.formatted(list.isBlank() ? "" : list, added, resumeBody);
+
+                ORIGINAL RESUME (judge coverage from this):
+                %s
+
+                TAILORED RESUME (copy anchors from this):
+                %s
+                """.formatted(list.isBlank() ? "" : list, describe, added, originalBody, tailoredBody);
     }
 
     /** An accepted addition, offered to the model so it can point at one instead of duplicating it. */

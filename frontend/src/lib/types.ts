@@ -116,6 +116,11 @@ export interface KeywordResult {
   evidence: string | null;
   /** Offered when the requirement is not covered, so the gap can be closed in one click. */
   addition: Suggestion | null;
+  /**
+   * What the requirement is, in plain words. Comes from a glossary shared by every user,
+   * so it is null only until some model has explained the term.
+   */
+  description: string | null;
 }
 
 /** A requirement counts as covered once its offered addition has been accepted. */

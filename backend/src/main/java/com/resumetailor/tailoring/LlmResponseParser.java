@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.resumetailor.keyword.JdKeyword;
 import com.resumetailor.keyword.KeywordImportance;
+import com.resumetailor.keyword.KeywordNormalizer;
 import com.resumetailor.llm.JsonExtractor;
 import com.resumetailor.llm.LlmException;
 import lombok.RequiredArgsConstructor;
@@ -131,22 +132,24 @@ public class LlmResponseParser {
                 continue;
             }
 
+            String description = textOrNull(node, "description");
             boolean covered = node.path("covered").asBoolean(false);
             if (covered) {
                 verdicts.add(new GapAnalysisResult.RequirementVerdict(
-                        requirement, true, textOrNull(node, "evidence"), null, null));
+                        requirement, true, textOrNull(node, "evidence"), null, null, description));
                 continue;
             }
 
             UUID addressedBy = parseUuid(textOrNull(node, "addressedBy"));
             if (addressedBy != null && knownAdditionIds.contains(addressedBy)) {
                 verdicts.add(new GapAnalysisResult.RequirementVerdict(
-                        requirement, false, null, addressedBy, null));
+                        requirement, false, null, addressedBy, null, description));
                 continue;
             }
 
             GapAnalysisResult.ProposedAddition addition = parseAddition(node.path("addition"), requirement);
-            verdicts.add(new GapAnalysisResult.RequirementVerdict(requirement, false, null, null, addition));
+            verdicts.add(new GapAnalysisResult.RequirementVerdict(
+                    requirement, false, null, null, addition, description));
         }
         return new GapAnalysisResult(verdicts, modelUsed);
     }
@@ -170,7 +173,7 @@ public class LlmResponseParser {
 
     private GapAnalysisResult.RequirementVerdict fallbackVerdict(JdKeyword requirement) {
         return new GapAnalysisResult.RequirementVerdict(
-                requirement, false, null, null, defaultAddition(requirement));
+                requirement, false, null, null, defaultAddition(requirement), null);
     }
 
     /** Last resort: offer the requirement itself as a skill, placed by section. */
@@ -204,21 +207,9 @@ public class LlmResponseParser {
         return text.length() <= 200 ? text : text.substring(0, 200) + "...";
     }
 
-    /**
-     * Matching key for a requirement, applied to both sides.
-     *
-     * <p>Parentheticals are dropped because models decorate the keyword they echo back:
-     * "Java (REQUIRED)" when the importance was shown beside it, "Java (Programming
-     * Language)" when glossing. A mismatch here throws the whole analysis away, so this
-     * errs toward matching.
-     */
+    /** Matching key for a requirement, applied to both sides. See {@link KeywordNormalizer}. */
     private static String normalizeKeyword(String keyword) {
-        return keyword.replaceAll("\\([^)]*\\)", " ")
-                .replaceAll("[\\s\\p{Punct}]+$", "")
-                .replaceAll("^[\\s\\p{Punct}]+", "")
-                .replaceAll("\\s+", " ")
-                .strip()
-                .toLowerCase();
+        return KeywordNormalizer.normalize(keyword);
     }
 
     private static UUID parseUuid(String value) {

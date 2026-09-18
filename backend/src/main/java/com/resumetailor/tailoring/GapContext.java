@@ -8,16 +8,18 @@ import java.util.UUID;
 /**
  * What the gap analysis needs, read once under a transaction.
  *
- * <p>{@code body} is the document as it currently stands -- the model's rewrite plus any
- * additions the user has already accepted -- so a re-check judges what they would actually
- * send, and {@code alreadyAdded} lets the model point at one of those instead of
- * proposing it again.
+ * <p>Coverage is judged on {@code originalBody} -- what the user's resume genuinely shows --
+ * so a rewrite that slips and adds a skill the candidate never had cannot make a gap read
+ * as covered. {@code body} is the model's pristine rewrite, which is only where additions
+ * are anchored; {@code alreadyAdded} lets the model point at an addition the user already
+ * accepted instead of proposing it again.
  */
 public record GapContext(
         UUID runId,
         UUID jobDescriptionId,
         UUID llmProfileId,
         ResumeFormat format,
+        String originalBody,
         String body,
         List<Prompts.ExistingAddition> alreadyAdded) {
 }

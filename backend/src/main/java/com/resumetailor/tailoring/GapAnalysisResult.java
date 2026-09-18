@@ -13,13 +13,16 @@ public record GapAnalysisResult(List<RequirementVerdict> verdicts, String modelU
      * @param evidence    verbatim quote from the resume backing a covered verdict
      * @param addressedBy an addition the user already accepted that satisfies this
      * @param addition    how to add it, present whenever it is not covered
+     * @param description what the requirement is, in general terms; present only when the
+     *                    model was asked to explain it (see {@link Prompts#gapAnalysisUser})
      */
     public record RequirementVerdict(
             JdKeyword requirement,
             boolean covered,
             String evidence,
             UUID addressedBy,
-            ProposedAddition addition) {
+            ProposedAddition addition,
+            String description) {
     }
 
     /**

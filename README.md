@@ -98,7 +98,8 @@ Open <http://localhost:3000>.
 4. **Tailor** — pick a resume, paste the posting, run it. Takes 20–60 seconds.
 5. **Review** — read the diff section by section. The requirements panel shows what the
    posting asks for: hover anything marked covered to see the line of your resume it was
-   read from, and use **Add to resume** on the gaps you want to close. Additions land
+   read from, and use **Add to resume** on the gaps you want to close. Hover a missing
+   skill (or its **?**) for a short plain-language explanation of what it is. Additions land
    inside your existing lists and can be removed again at any point.
 6. **Export** — download the `.tex`/`.md`, or compile a PDF.
 
@@ -119,14 +120,38 @@ Three LLM calls per run:
 1. **Analyse the posting** → company, role, required/preferred/nice requirements.
    Cached per job description, so re-running costs nothing.
 2. **Tailor the resume** → the rewritten body and a per-section change log with reasons.
-3. **Check the result** → which requirements the rewrite covers, with the line of your
-   resume behind each verdict, plus the exact edit that would add each one it misses.
+3. **Check the result** → which requirements your resume covers, with the line of your
+   original resume behind each verdict, plus the exact edit that would add each one it
+   misses. It also explains, in a sentence or two, any requirement nobody has had explained
+   yet (see below).
 
 Java does the arithmetic on step 3 (required counts 3, preferred 2, nice-to-have 1) but
 not the judging. Coverage used to be decided by literal keyword matching, which reported
 a Java developer's resume as missing "Java" because the posting called it
 "Java (Programming Language)". Whether a resume covers a requirement is a question about
 meaning.
+
+Coverage is judged on your **original** resume, not the rewrite. The rewrite is prompted
+to keep your own title and never add a skill to a headline, tagline or skills list — but a
+model can still slip, and if the rewrite were the thing being judged it could vouch for
+its own invention: a Java developer's tagline sprouting "C | C++ | C#" would then report
+those as covered. Judged on the original, they show as gaps you can choose to add, and
+the rewrite is used only to place the addition.
+
+### What a skill is: a glossary shared by every user
+
+Postings say things like "cloud-native design patterns" and assume you know. Each missing
+skill in the requirements panel has a **?** — hover the row for a short explanation.
+
+Those explanations live in one `skill_definitions` table that is **not** scoped to a user,
+unlike everything else the app stores. A definition is general knowledge about a term, not
+something you wrote, so it is written once — by whichever user's model meets the term first —
+and reused for every later posting, anyone's, that asks for the same thing. Before step 3 the
+backend looks the posting's requirements up in the glossary and asks the model to explain
+only the ones it doesn't have, so a well-worn term costs no extra tokens. Terms are matched
+after normalising ("Java (Programming Language)" and "java" are one entry), the first
+definition is kept and never overwritten, and nothing about you, your resume or the posting
+is stored with it. A requirement with no definition yet simply shows no **?**.
 
 ### How an addition is placed
 

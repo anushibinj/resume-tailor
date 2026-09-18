@@ -42,6 +42,11 @@ service filters by `CurrentUserProvider.currentUserId()`.
 - **Never** call `findAll()` / `findById()` on an owned repository from a service.
   Use `findAllByOwnerId…` / `findByIdAndOwnerId`.
 - Adding a user-owned table means adding `owner_id` to it in the same migration.
+- **The one deliberate exception is `skill_definitions`** (`com.resumetailor.skill`): plain
+  descriptions of skills, shared by every user so a term is explained once. It holds
+  general knowledge about a term and nothing about any candidate, resume or posting — keep
+  it that way, and do not put user-derived text in it. It is the only repository that may
+  be queried without an owner.
 
 `com.resumetailor.user.CurrentUserProvider` was the only seam that needed to change to
 add real multi-user auth: `SecurityContextUserProvider` reads the id
@@ -65,8 +70,12 @@ Do not "simplify" this by sending the whole file.
 
 ### 3. Coverage is judged by the model; only the arithmetic is Java's
 
-`GapAnalyzer` (LLM call 3) decides which of the posting's requirements the tailored
-resume covers, and quotes the resume line behind each "covered" verdict.
+`GapAnalyzer` (LLM call 3) decides which of the posting's requirements the user's
+**original** resume covers, and quotes the resume line behind each "covered" verdict. It
+is given the tailored rewrite too, but only to anchor additions in -- never as evidence.
+Judging the rewrite let a rewrite that slipped (a Java developer's tagline rewritten to
+"Principal ... C | C++ | C#") vouch for its own invention, and every requirement then
+read as covered.
 `CoverageScorer` only weights and totals those verdicts (`REQUIRED` 3 / `PREFERRED` 2 /
 `NICE` 1).
 
@@ -99,7 +108,9 @@ of this code:
 
 `Prompts.tailoringSystem()` allows only reorder / reword / re-emphasise / trim. The
 rewrite must never add an employer, title, date, degree, tool or metric the resume does
-not already show.
+not already show. That includes the headline: the candidate keeps their own title (the
+job's role is passed labelled as *not* theirs) and a skills list may shrink or reorder
+but never gain an item. `PromptsTest` pins those rules.
 
 Adding something the resume does not support is a separate, explicit act by the user.
 The gap analysis offers an addition for **every** uncovered requirement -- including
@@ -131,7 +142,8 @@ Backend packages under `com.resumetailor` are organised by **feature**, not by l
 | `jd`        | Job descriptions and the cached analysis |
 | `llm`       | LLM profiles, AES-GCM key crypto, OpenAI-compatible client |
 | `tailoring` | Prompts, the three-call pipeline, run entities, gap analysis, diff building |
-| `keyword`   | Requirement types and the weighted coverage score |
+| `keyword`   | Requirement types, the weighted coverage score, `KeywordNormalizer` |
+| `skill`     | The shared (not owner-scoped) glossary of what each skill is |
 | `pdf`       | `PdfCompiler` and the Docker TeX implementation |
 | `export`    | Download endpoints and stored artifacts |
 
@@ -142,7 +154,10 @@ Backend packages under `com.resumetailor` are organised by **feature**, not by l
 2. Work starts in `afterCommit` so the async thread can actually see the row.
 3. `TailoringRunner` (on `tailoringExecutor`): resolve LLM settings → `JdAnalyzer`
    (call 1, cached per JD and per prompt version) → tailoring call (call 2) → save the
-   rewrite → `GapAnalyzer` (call 3) → save requirements and their additions.
+   rewrite → `GapAnalyzer` (call 3) → save requirements and their additions. Call 3 also
+   explains any requirement missing from the shared glossary (`SkillDefinitionService`);
+   only those are asked for, and they are stored after the gaps are saved, in a failure
+   that cannot fail the check.
 4. The frontend polls `GET /api/runs/{id}` every 2s while either the run or the gap check
    is still working.
 
@@ -153,9 +168,9 @@ retry (`POST /api/runs/{id}/gaps`) instead of losing it. `OUTDATED` marks runs w
 coverage came from the retired matcher -- the UI hides those numbers and offers the
 re-check rather than showing values known to be wrong.
 
-A re-check judges the **pristine** rewrite and is told separately about additions the
-user already accepted, so the model can point at one (`addressedBy`) rather than
-proposing it again. Judging the document with additions already applied would report the
+A re-check judges the **original** resume (anchoring against the pristine rewrite) and is
+told separately about additions the user already accepted, so the model can point at one
+(`addressedBy`) rather than proposing it again. Judging a document with additions already applied would report the
 requirement as covered, detach the addition from it, and leave the requirement stuck as
 covered after the addition was removed.
 
