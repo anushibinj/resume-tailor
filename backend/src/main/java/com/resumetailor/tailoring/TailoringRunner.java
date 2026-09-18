@@ -101,7 +101,7 @@ public class TailoringRunner {
     private void checkGaps(GapContext context, JdAnalysisResult analysis, LlmSettings settings) {
         try {
             GapAnalysisResult result = gapAnalyzer.analyze(
-                    analysis.keywords(), context.body(), context.format(),
+                    analysis.keywords(), context.originalBody(), context.body(), context.format(),
                     context.alreadyAdded(), settings);
             store.saveGaps(context.runId(), result);
             log.info("Run {} gap analysis complete", context.runId());

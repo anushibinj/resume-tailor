@@ -15,8 +15,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * LLM call 3: judges which of the posting's requirements the tailored resume covers, and
- * writes the exact edit that would add each one it does not.
+ * LLM call 3: judges which of the posting's requirements the candidate's resume covers, and
+ * writes the exact edit that would add each one it does not. Coverage is judged on the
+ * original resume, not the rewrite, so the rewrite cannot vouch for itself.
  *
  * <p>This replaced a deterministic keyword matcher. The matcher compared strings, so a
  * requirement the model had phrased as "Java (Programming Language)" never matched a
@@ -31,17 +32,18 @@ public class GapAnalyzer {
     private final OpenAiCompatibleClient client;
     private final LlmResponseParser parser;
 
-    public GapAnalysisResult analyze(List<JdKeyword> requirements, String resumeBody, ResumeFormat format,
+    public GapAnalysisResult analyze(List<JdKeyword> requirements, String originalBody, String tailoredBody,
+                                     ResumeFormat format,
                                      List<Prompts.ExistingAddition> alreadyAdded, LlmSettings settings) {
         if (requirements.isEmpty()) {
             return new GapAnalysisResult(List.of(), null);
         }
-        log.debug("Checking {} requirements against the tailored resume", requirements.size());
+        log.debug("Checking {} requirements against the resume", requirements.size());
 
         LlmChatResult result = client.chat(
                 settings,
                 Prompts.gapAnalysisSystem(format),
-                Prompts.gapAnalysisUser(requirements, resumeBody, alreadyAdded),
+                Prompts.gapAnalysisUser(requirements, originalBody, tailoredBody, alreadyAdded),
                 true);
 
         // The shape of this reply is the most common thing to go wrong with a new model,

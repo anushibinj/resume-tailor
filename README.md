@@ -119,14 +119,22 @@ Three LLM calls per run:
 1. **Analyse the posting** → company, role, required/preferred/nice requirements.
    Cached per job description, so re-running costs nothing.
 2. **Tailor the resume** → the rewritten body and a per-section change log with reasons.
-3. **Check the result** → which requirements the rewrite covers, with the line of your
-   resume behind each verdict, plus the exact edit that would add each one it misses.
+3. **Check the result** → which requirements your resume covers, with the line of your
+   original resume behind each verdict, plus the exact edit that would add each one it
+   misses.
 
 Java does the arithmetic on step 3 (required counts 3, preferred 2, nice-to-have 1) but
 not the judging. Coverage used to be decided by literal keyword matching, which reported
 a Java developer's resume as missing "Java" because the posting called it
 "Java (Programming Language)". Whether a resume covers a requirement is a question about
 meaning.
+
+Coverage is judged on your **original** resume, not the rewrite. The rewrite is prompted
+to keep your own title and never add a skill to a headline, tagline or skills list — but a
+model can still slip, and if the rewrite were the thing being judged it could vouch for
+its own invention: a Java developer's tagline sprouting "C | C++ | C#" would then report
+those as covered. Judged on the original, they show as gaps you can choose to add, and
+the rewrite is used only to place the addition.
 
 ### How an addition is placed
 

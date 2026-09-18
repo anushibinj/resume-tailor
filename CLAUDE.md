@@ -65,8 +65,12 @@ Do not "simplify" this by sending the whole file.
 
 ### 3. Coverage is judged by the model; only the arithmetic is Java's
 
-`GapAnalyzer` (LLM call 3) decides which of the posting's requirements the tailored
-resume covers, and quotes the resume line behind each "covered" verdict.
+`GapAnalyzer` (LLM call 3) decides which of the posting's requirements the user's
+**original** resume covers, and quotes the resume line behind each "covered" verdict. It
+is given the tailored rewrite too, but only to anchor additions in -- never as evidence.
+Judging the rewrite let a rewrite that slipped (a Java developer's tagline rewritten to
+"Principal ... C | C++ | C#") vouch for its own invention, and every requirement then
+read as covered.
 `CoverageScorer` only weights and totals those verdicts (`REQUIRED` 3 / `PREFERRED` 2 /
 `NICE` 1).
 
@@ -99,7 +103,9 @@ of this code:
 
 `Prompts.tailoringSystem()` allows only reorder / reword / re-emphasise / trim. The
 rewrite must never add an employer, title, date, degree, tool or metric the resume does
-not already show.
+not already show. That includes the headline: the candidate keeps their own title (the
+job's role is passed labelled as *not* theirs) and a skills list may shrink or reorder
+but never gain an item. `PromptsTest` pins those rules.
 
 Adding something the resume does not support is a separate, explicit act by the user.
 The gap analysis offers an addition for **every** uncovered requirement -- including
@@ -153,9 +159,9 @@ retry (`POST /api/runs/{id}/gaps`) instead of losing it. `OUTDATED` marks runs w
 coverage came from the retired matcher -- the UI hides those numbers and offers the
 re-check rather than showing values known to be wrong.
 
-A re-check judges the **pristine** rewrite and is told separately about additions the
-user already accepted, so the model can point at one (`addressedBy`) rather than
-proposing it again. Judging the document with additions already applied would report the
+A re-check judges the **original** resume (anchoring against the pristine rewrite) and is
+told separately about additions the user already accepted, so the model can point at one
+(`addressedBy`) rather than proposing it again. Judging a document with additions already applied would report the
 requirement as covered, detach the addition from it, and leave the requirement stuck as
 covered after the addition was removed.
 

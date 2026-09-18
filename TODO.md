@@ -52,6 +52,11 @@ decisions stays readable.
 - [ ] Re-run a past run against an edited base resume, keeping both for comparison.
 - [ ] Export straight to Overleaf.
 - [ ] Let the user edit the tailored source in-app before export.
+- [ ] Let the user pick where a gap is added (tagline / summary / skills list). Today the
+      model proposes one location per gap; offering several would need more than one
+      `run_suggestions` row per requirement (`run_keywords.suggestion_id` is a single link).
+- [ ] Detect a rewrite that added a skill the original never had and surface it in the diff
+      (coverage no longer trusts the rewrite, but the invented text still shows there).
 
 ## Smaller cleanups
 

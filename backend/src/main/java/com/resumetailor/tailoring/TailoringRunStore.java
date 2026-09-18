@@ -101,7 +101,7 @@ public class TailoringRunStore {
 
         return new GapContext(
                 runId, run.getJobDescriptionId(), run.getLlmProfileId(), run.getFormat(),
-                output.tailoredBody(), List.of());
+                run.getOriginalBody(), output.tailoredBody(), List.of());
     }
 
     /** Marks gap analysis as started and gathers the current document plus its additions. */
@@ -115,13 +115,15 @@ public class TailoringRunStore {
         List<RunSuggestion> accepted = suggestionRepository
                 .findAllByRunIdAndStatusOrderByOrdinalAsc(runId, SuggestionStatus.ACCEPTED);
 
-        // Judge the model's pristine rewrite, NOT the document with additions applied. If the
-        // added text were present, the model would rightly call the requirement covered, the
+        // Judge the user's original resume (the rewrite is passed only to anchor additions in),
+        // NOT a document with additions applied. If the added text were present, the model
+        // would rightly call the requirement covered, the
         // addition would come back detached from it, and removing the addition would leave the
         // requirement still showing as covered. Passing the additions separately lets the model
         // point at one instead, which keeps accepting and removing reversible.
         return new GapContext(
                 runId, run.getJobDescriptionId(), run.getLlmProfileId(), run.getFormat(),
+                run.getOriginalBody(),
                 run.getTailoredBody() == null ? "" : run.getTailoredBody(),
                 accepted.stream()
                         .map(s -> new Prompts.ExistingAddition(s.getId().toString(), s.getContent()))
