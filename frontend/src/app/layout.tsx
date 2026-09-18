@@ -3,6 +3,7 @@ import { IBM_Plex_Mono, Instrument_Sans, Newsreader } from "next/font/google";
 import { Toaster } from "sonner";
 
 import { SiteHeader } from "@/components/site-header";
+import { AuthProvider } from "./auth-provider";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -45,8 +46,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       */}
       <body className="flex min-h-full flex-col" suppressHydrationWarning>
         <Providers>
-          <SiteHeader />
-          <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-10">{children}</main>
+          <AuthProvider>
+            <SiteHeader />
+            <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-10">{children}</main>
+          </AuthProvider>
           <Toaster position="bottom-right" closeButton richColors />
         </Providers>
       </body>

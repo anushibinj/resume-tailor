@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Moon, Sun } from "lucide-react";
+import { LogOut, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { useAuth } from "@/app/auth-provider";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -42,11 +43,37 @@ export function SiteHeader() {
             );
           })}
         </nav>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
           <ThemeToggle />
+          <UserMenu />
         </div>
       </div>
     </header>
+  );
+}
+
+function UserMenu() {
+  const { user, signOut } = useAuth();
+
+  return (
+    <div className="flex items-center gap-2 border-l border-rule pl-3">
+      {user.pictureUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a Google-hosted avatar, not worth next/image's config for one small icon.
+        <img src={user.pictureUrl} alt="" className="size-6 rounded-full" referrerPolicy="no-referrer" />
+      ) : null}
+      <span className="hidden text-sm text-ink-soft sm:inline" title={user.email}>
+        {user.displayName}
+      </span>
+      <button
+        type="button"
+        onClick={signOut}
+        className="rounded-sm p-2 text-ink-soft transition-colors hover:bg-surface-sunk hover:text-ink"
+        aria-label="Sign out"
+        title="Sign out"
+      >
+        <LogOut className="size-4" />
+      </button>
+    </div>
   );
 }
 
