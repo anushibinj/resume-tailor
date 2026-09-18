@@ -32,8 +32,15 @@ decisions stays readable.
 
 ## v2 — multi-user
 
-- [ ] Registration and login. Replace `SingleUserProvider` with a `SecurityContext`-backed
-      `CurrentUserProvider`; the schema already carries `owner_id` everywhere.
+- [x] Registration and login. Google Sign-In issues the app's own JWT; `SingleUserProvider`
+      is replaced by `SecurityContextUserProvider`. The schema already carried `owner_id`
+      everywhere, so no query changes were needed.
+- [x] RBAC scaffolding. `Role` (`NORMAL_USER` / `ORG_ADMIN` / `ADMIN`) on `User`,
+      `@EnableMethodSecurity` wired in `SecurityConfig`. Every new user is `NORMAL_USER`;
+      nothing promotes a user yet and no endpoint is role-gated (there's nothing
+      admin-only to gate).
+- [ ] An actual admin surface once there's something for `ORG_ADMIN`/`ADMIN` to do —
+      right now promoting a user means a manual `UPDATE users SET role = ...`.
 - [ ] Rate limiting per user on run creation.
 - [ ] Move per-user LLM keys behind a per-user encryption key rather than one global one.
 

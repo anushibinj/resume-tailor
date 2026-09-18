@@ -1,7 +1,10 @@
 %% Resume Tailor — how a tailoring run flows through the system.
 %% Keep this in sync with code changes (see CLAUDE.md).
 flowchart TB
+    google["Google Identity Services<br/>issues an ID token in the browser"]
+
     subgraph browser["Browser — Next.js 15 (:3000)"]
+        signin["sign-in gate<br/>Google Sign-In button"]
         settings["/settings<br/>model connections"]
         resumes["/resumes<br/>base resume library"]
         tailor["/tailor<br/>paste a posting"]
@@ -10,8 +13,10 @@ flowchart TB
 
     subgraph api["Spring Boot (:8080)"]
         direction TB
+        authctrl["AuthController<br/>POST /api/auth/google<br/>verify token → find-or-create user → issue app JWT"]
+        jwtfilter{{"JwtAuthenticationFilter<br/>validates the app's session token<br/>populates SecurityContext"}}
         ctrl["Controllers<br/>/api/resumes · /api/runs · /api/llm-profiles"]
-        owner{{"CurrentUserProvider<br/>every query is owner-scoped<br/>(v2 auth swaps only this)"}}
+        owner{{"CurrentUserProvider<br/>SecurityContextUserProvider:<br/>every query is owner-scoped to the signed-in user"}}
 
         subgraph ingest["Resume ingest"]
             detect["ResumeParser.detectFormat<br/>LaTeX or Markdown"]
@@ -28,13 +33,19 @@ flowchart TB
         splice["SuggestionSplicer<br/>applies only ACCEPTED suggestions"]
     end
 
-    db[("Postgres<br/>resumes · job_descriptions<br/>tailoring_runs · run_keywords<br/>run_suggestions · llm_profiles")]
+    db[("Postgres<br/>users · resumes · job_descriptions<br/>tailoring_runs · run_keywords<br/>run_suggestions · llm_profiles")]
     llm["Your LLM<br/>OpenAI-compatible<br/>/chat/completions"]
     tex["docker run resume-tailor-tex<br/>--network none · -no-shell-escape<br/>memory + time capped"]
 
-    settings --> ctrl
-    resumes --> ctrl
-    tailor --> ctrl
+    signin -- "ID token" --> authctrl
+    authctrl -- "verify against Google's public keys" --> google
+    authctrl -- "find-or-create, RBAC role NORMAL_USER on first sign-in" --> db
+    authctrl -- "app JWT" --> signin
+
+    settings -- "Authorization: Bearer <app JWT>" --> jwtfilter
+    resumes --> jwtfilter
+    tailor --> jwtfilter
+    jwtfilter --> ctrl
     ctrl --> owner
     owner --> db
 
@@ -51,5 +62,5 @@ flowchart TB
 
     classDef guard fill:#e4ecf5,stroke:#2f5d8c,color:#1d2b2f;
     classDef external fill:#f5efdf,stroke:#8a6d2b,color:#1d2b2f;
-    class owner,match,splice guard;
-    class llm,tex external;
+    class owner,jwtfilter,match,splice guard;
+    class llm,tex,google external;

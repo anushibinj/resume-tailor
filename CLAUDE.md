@@ -36,17 +36,22 @@ its user.
 
 ### 1. Every query is owner-scoped
 
-v1 is single-user, but the schema is not. Every user-owned table has
-`owner_id UUID NOT NULL` from `V1__init.sql`, and every service filters by
-`CurrentUserProvider.currentUserId()`.
+Every user-owned table has `owner_id UUID NOT NULL` from `V1__init.sql`, and every
+service filters by `CurrentUserProvider.currentUserId()`.
 
 - **Never** call `findAll()` / `findById()` on an owned repository from a service.
   Use `findAllByOwnerId…` / `findByIdAndOwnerId`.
 - Adding a user-owned table means adding `owner_id` to it in the same migration.
 
-`com.resumetailor.user.CurrentUserProvider` is the only seam that needs to change for
-multi-user (v2): delete `SingleUserProvider` and provide a bean that reads Spring
-Security's `SecurityContext`. No schema migration, no query changes.
+`com.resumetailor.user.CurrentUserProvider` was the only seam that needed to change to
+add real multi-user auth: `SecurityContextUserProvider` reads the id
+`com.resumetailor.auth.JwtAuthenticationFilter` put in Spring Security's
+`SecurityContext` after validating the app's own session token (issued by
+`AuthController`/`JwtService` once a Google Sign-In ID token is verified). Adding it
+needed zero schema migration and zero query changes to any existing owned table — see
+`V2__add_auth.sql` for the only migration it did need (auth columns on `users` itself).
+Every new user is created `Role.NORMAL_USER`; `ORG_ADMIN` and `ADMIN` exist for RBAC but
+nothing assigns them yet.
 
 ### 2. The LaTeX preamble is never sent to the LLM
 
@@ -100,9 +105,10 @@ Backend packages under `com.resumetailor` are organised by **feature**, not by l
 
 | Package     | Holds |
 |-------------|-------|
-| `config`    | CORS, async executor, `@ConfigurationProperties`, startup seeding |
+| `config`    | CORS, async executor, `@ConfigurationProperties` |
 | `common`    | `BaseEntity` / `AuditedEntity`, exceptions, `@RestControllerAdvice`, hashing |
-| `user`      | `User`, `CurrentUserProvider` — **the v2 auth seam** |
+| `user`      | `User`, `Role` (RBAC), `CurrentUserProvider` — **the auth seam** |
+| `auth`      | Google Sign-In verification, app JWT issue/validate, `SecurityConfig` |
 | `resume`    | Base resumes, format detection, preamble split, section segmentation |
 | `jd`        | Job descriptions and the cached analysis |
 | `llm`       | LLM profiles, AES-GCM key crypto, OpenAI-compatible client |
@@ -157,13 +163,19 @@ that prove shell escape was refused.
 Prerequisites: Java 17, Maven, Node 22, pnpm, Docker Desktop **running**.
 
 ```bash
-cp backend/.env.example backend/.env       # then set ENCRYPTION_KEY
+cp backend/.env.example backend/.env       # then set ENCRYPTION_KEY, GOOGLE_CLIENT_ID, JWT_SECRET
 openssl rand -base64 32                    # value for ENCRYPTION_KEY
+openssl rand -base64 48                    # value for JWT_SECRET
 docker compose up -d postgres
 docker build -t resume-tailor-tex docker/tex   # once, for PDF export
 ./backend/start-dev.sh                     # mvn spring-boot:run with the dev profile
-cd frontend && pnpm install && pnpm dev
+cd frontend && cp .env.example .env.local && pnpm install && pnpm dev
 ```
+
+`GOOGLE_CLIENT_ID` (backend) and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (frontend) must be the
+same OAuth 2.0 Web client ID from Google Cloud Console, with `http://localhost:3000`
+listed as an Authorized JavaScript origin — see the README's "Multi-user and Google
+Sign-In" section.
 
 `backend/start-dev.sh` changes into its own directory before starting, so it runs from
 anywhere; spring-dotenv then finds `backend/.env`. Keep it location-independent — don't
@@ -172,6 +184,10 @@ hardcode an absolute path.
 `ENCRYPTION_KEY` is required — `ApiKeyCipher` refuses to start without a valid 32-byte
 base64 key, because it encrypts stored LLM API keys. Changing it makes existing stored
 keys undecryptable; the user must re-enter them in Settings.
+
+`GOOGLE_CLIENT_ID` and `JWT_SECRET` are required the same way — `GoogleTokenVerifier` and
+`JwtService` refuse to start without them, following the same fail-fast pattern as
+`ApiKeyCipher`.
 
 ## Testing
 
@@ -216,6 +232,13 @@ bean graph fails the default suite rather than surfacing at `spring-boot:run`.
   chunked body, which small OpenAI-compatible servers and proxies reset the connection on.
 - `OpenAiCompatibleClient` has two constructors (one is a test seam), so the production
   one must stay `@Autowired` — without it Spring cannot choose and the app fails to start.
+- `JwtAuthenticationFilter` is deliberately **not** a `@Component`. `@WebMvcTest` slices
+  always pull in every bean that implements `Filter`, regardless of
+  `@AutoConfigureMockMvc(addFilters = false)` (that flag only skips running the filter
+  chain against the request; the bean still has to be constructed). A scanned
+  `JwtAuthenticationFilter` would drag `JwtService` — and its required `JWT_SECRET` — into
+  every controller-only test slice. `SecurityConfig` constructs it directly as a `@Bean`
+  instead, so it never enters component scanning.
 - Custom CSS classes in `frontend/src/app/globals.css` (`.document`, `.mark-add`,
   `.mark-cut`) live inside `@layer components`. Unlayered CSS beats every Tailwind
   utility regardless of specificity, so a class declared outside a layer silently ignores
