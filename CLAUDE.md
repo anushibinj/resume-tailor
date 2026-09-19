@@ -320,3 +320,21 @@ bean graph fails the default suite rather than surfacing at `spring-boot:run`.
   Grammarly) inject attributes there. It only covers that element's own attributes, one
   level deep — a mismatch in any child is still reported, which was verified. Do not
   spread it onto components to quiet a hydration warning: that hides real bugs.
+- **New frontend components should be lazy loaded by default**, using `next/dynamic`
+  (this is a Next.js App Router app — `React.lazy`/`Suspense` is the React-only pattern
+  and isn't what's used here). Convention, established on `SectionDiffView`,
+  `KeywordMargin` and `GoogleSignInButton`: `const Foo = dynamic(() =>
+  import("@/components/foo").then((mod) => mod.Foo), { loading: () => <FooSkeleton /> })`
+  next to the other imports in the file that uses it, with the fallback matching the
+  shape of what it replaces (built from the `Skeleton` primitive in
+  `frontend/src/components/ui.tsx` — reuse it rather than adding another one). Not
+  everything qualifies — skip it for: anything Next.js already code-splits per route
+  (`page.tsx`/`layout.tsx` default exports); components that gate or wrap the whole app
+  and must run before their children can (`Providers`, `AuthProvider`, `SiteHeader`);
+  small always-rendered primitives with no heavy dependency (`Button`, `Input`, `Tag`,
+  `Spinner`, etc. in `ui.tsx`) where a Suspense boundary would only add flicker; and
+  non-exported helper components defined and used only inside another component's own
+  file (lazy loading needs a real module to `import()` — extracting a private helper
+  into its own file just to lazy-load it is a bigger change than the loading behavior is
+  worth). Reasonable candidates are components with a real dependency to defer or that
+  render conditionally behind a data/auth state.

@@ -2,18 +2,29 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Copy, Download, FileText, RefreshCw, Trash2 } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { CoverageMeter } from "@/components/coverage-meter";
-import { KeywordMargin } from "@/components/keyword-margin";
-import { SectionDiffView } from "@/components/section-diff-view";
-import { Button, Panel, Spinner, Tag } from "@/components/ui";
+import { Button, Panel, Skeleton, Spinner, Tag } from "@/components/ui";
 import { api, describeError } from "@/lib/api";
 import type { RunDetail, Suggestion } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
+
+// Both panes are non-trivial (a word-diff engine, a multi-state gap review UI) and only
+// matter once the run has completed and the relevant tab/data is in view, so they're
+// split out of the initial route chunk rather than loaded with every run page.
+const SectionDiffView = dynamic(
+  () => import("@/components/section-diff-view").then((mod) => mod.SectionDiffView),
+  { loading: () => <SectionDiffViewSkeleton /> },
+);
+const KeywordMargin = dynamic(
+  () => import("@/components/keyword-margin").then((mod) => mod.KeywordMargin),
+  { loading: () => <KeywordMarginSkeleton /> },
+);
 
 type Tab = "review" | "source" | "posting";
 
@@ -403,6 +414,32 @@ function WorkingNotice({ status }: { status: string }) {
         </p>
       </div>
     </Panel>
+  );
+}
+
+/** Approximates the accordion of section rows `SectionDiffView` renders once loaded. */
+function SectionDiffViewSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center gap-3 rounded-sm border border-rule bg-surface px-4 py-3">
+          <Skeleton className="h-4 w-4 shrink-0" />
+          <Skeleton className="h-4 w-40" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Approximates the grouped requirement rows `KeywordMargin` renders once loaded. */
+function KeywordMarginSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-4 w-28" />
+      {[0, 1, 2].map((i) => (
+        <Skeleton key={i} className="h-16 w-full" />
+      ))}
+    </div>
   );
 }
 

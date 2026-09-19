@@ -169,3 +169,8 @@ export function Spinner({ className }: { className?: string }) {
     />
   );
 }
+
+/** A pulsing placeholder block, sized by the caller to approximate the content it stands in for. */
+export function Skeleton({ className }: { className?: string }) {
+  return <div role="status" aria-label="Loading" className={cn("animate-pulse rounded-sm bg-surface-sunk", className)} />;
+}
