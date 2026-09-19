@@ -17,6 +17,9 @@ model's — including a keyword you want purely to get past an ATS.
   showing what the posting wants and what you actually cover, and run history.
 - **PDF without installing TeX.** Compilation happens inside a throwaway Docker
   container.
+- **Ask about a resume.** One question in, one answer out, from that resume alone. Every
+  question stands on its own -- there's no back-and-forth to keep track of -- and past
+  questions are kept per resume so you can look back at what you asked.
 
 ---
 
@@ -102,6 +105,10 @@ Open <http://localhost:3000>.
    skill (or its **?**) for a short plain-language explanation of what it is. Additions land
    inside your existing lists and can be removed again at any point.
 6. **Export** — download the `.tex`/`.md`, or compile a PDF.
+7. **Ask** — pick a resume and ask it a single question ("Briefly tell about my core
+   experience and technical strengths"). The answer comes back in one response; asking
+   again starts a new question rather than continuing a conversation. Every question you've
+   asked about that resume is kept below it.
 
 ## How it works
 
@@ -168,6 +175,18 @@ A `.tex` resume is split at `\begin{document}`. Only the body is sent; the pream
 reattached verbatim afterwards. So even a model that ignores every instruction can only
 damage prose — never the thing that makes your document compile.
 
+### Why asking about a resume is never a conversation
+
+Each question is answered from the resume text alone, in a single model call -- there is
+no message history sent alongside it, so there is nothing for a later question to build on
+even if the UI let you try. That's deliberate: a follow-up question implicitly depends on
+what was said before, and nothing here re-reads or re-judges the resume when you ask a
+second, related question -- it starts over from the resume itself, same as the first one
+did. The one-click **Ask another question in a new chat** action makes that explicit rather
+than leaving you to wonder why context didn't carry over. Every question and its answer (or
+the error, if the call failed) is still saved, so the history under each resume is a log you
+can browse, not a chat you can resume.
+
 ### Why PDF builds run in Docker
 
 LaTeX is a full programming language that can read and write files, and the markup being
@@ -193,6 +212,8 @@ with no network, no shell escape, a memory cap and a hard timeout.
 | `POST/GET` | `/api/runs/{id}/pdf` | Compile / download the PDF |
 | `GET/POST` | `/api/llm-profiles` | Manage model connections |
 | `POST` | `/api/llm-profiles/{id}/test` | Check the endpoint responds |
+| `POST` | `/api/resumes/{id}/questions` | Ask a single-shot question about a resume (answers synchronously) |
+| `GET` | `/api/resumes/{id}/questions` | History of questions asked about a resume, paginated |
 
 ## Tests
 

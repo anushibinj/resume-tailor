@@ -9,6 +9,7 @@ flowchart TB
         resumes["/resumes<br/>base resume library"]
         tailor["/tailor<br/>paste a posting"]
         runview["run detail<br/>diff · requirement coverage · additions"]
+        ask["/ask<br/>one question per resume · answer history<br/>next action is always 'ask another in a new chat'"]
     end
 
     subgraph api["Spring Boot (:8080)"]
@@ -16,6 +17,7 @@ flowchart TB
         authctrl["AuthController<br/>POST /api/auth/google<br/>verify token → find-or-create user → issue app JWT"]
         jwtfilter{{"JwtAuthenticationFilter<br/>validates the app's session token<br/>populates SecurityContext"}}
         ctrl["Controllers<br/>/api/resumes · /api/runs · /api/llm-profiles"]
+        qa["ResumeQaController/Service<br/>POST /api/resumes/{id}/questions -- one synchronous LLM call<br/>never replays earlier questions or answers as context"]
         owner{{"CurrentUserProvider<br/>SecurityContextUserProvider:<br/>every query is owner-scoped to the signed-in user"}}
 
         subgraph ingest["Resume ingest"]
@@ -35,7 +37,7 @@ flowchart TB
         splice["AdditionApplier<br/>applies only ACCEPTED additions<br/>anchored · insert-only"]
     end
 
-    db[("Postgres<br/>users · resumes · job_descriptions<br/>tailoring_runs · run_keywords<br/>run_suggestions · llm_profiles<br/>skill_definitions (shared by all users)")]
+    db[("Postgres<br/>users · resumes · job_descriptions<br/>tailoring_runs · run_keywords<br/>run_suggestions · llm_profiles<br/>resume_questions (question/answer history, flat -- not a conversation)<br/>skill_definitions (shared by all users)")]
     llm["Your LLM<br/>OpenAI-compatible<br/>/chat/completions"]
     tex["docker run resume-tailor-tex<br/>--network none · -no-shell-escape<br/>memory + time capped"]
 
@@ -47,11 +49,18 @@ flowchart TB
     settings -- "Authorization: Bearer <app JWT>" --> jwtfilter
     resumes --> jwtfilter
     tailor --> jwtfilter
+    ask --> jwtfilter
     jwtfilter --> ctrl
+    jwtfilter --> qa
     ctrl --> owner
+    qa --> owner
     owner --> db
 
     ctrl --> detect --> split --> db
+
+    qa -- "one synchronous call, resume body only" --> llm
+    qa --> db
+    db -- "answer, or the error if the call failed" --> ask
 
     ctrl -- "POST /api/runs → 202 PENDING" --> pipeline
     analyse -- "call 1" --> llm
@@ -68,5 +77,5 @@ flowchart TB
 
     classDef guard fill:#e4ecf5,stroke:#2f5d8c,color:#1d2b2f;
     classDef external fill:#f5efdf,stroke:#8a6d2b,color:#1d2b2f;
-    class owner,jwtfilter,gaps,splice guard;
+    class owner,jwtfilter,gaps,splice,qa guard;
     class llm,tex,google external;
