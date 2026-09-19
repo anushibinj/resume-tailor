@@ -185,3 +185,26 @@ export interface Page<T> {
   number: number;
   size: number;
 }
+
+export type QuestionStatus = "COMPLETED" | "FAILED";
+
+/**
+ * One single-shot question about a resume and its answer. There is no thread id: every
+ * question is answered from the resume alone, never from earlier questions, so this is a
+ * flat history entry, not a conversation turn.
+ */
+export interface ResumeQuestion {
+  id: string;
+  resumeId: string;
+  question: string;
+  answer: string | null;
+  status: QuestionStatus;
+  errorMessage: string | null;
+  modelUsed: string | null;
+  createdAt: string;
+}
+
+export interface AskQuestionRequest {
+  question: string;
+  llmProfileId?: string | null;
+}

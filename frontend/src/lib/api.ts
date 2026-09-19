@@ -1,11 +1,13 @@
 import { clearToken, getToken } from "./auth-token";
 import type {
+  AskQuestionRequest,
   AuthResponse,
   AuthUser,
   CreateRunRequest,
   LlmProfile,
   Page,
   ResumeDetail,
+  ResumeQuestion,
   ResumeSummary,
   RunDetail,
   RunSummary,
@@ -155,6 +157,16 @@ export const api = {
       request<ResumeDetail>(`/api/resumes/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     setDefault: (id: string) => request<ResumeDetail>(`/api/resumes/${id}/default`, { method: "POST" }),
     remove: (id: string) => request<void>(`/api/resumes/${id}`, { method: "DELETE" }),
+    questions: {
+      /** Synchronous: answers in this one round trip, unlike a tailoring run. */
+      ask: (resumeId: string, body: AskQuestionRequest) =>
+        request<ResumeQuestion>(`/api/resumes/${resumeId}/questions`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
+      history: (resumeId: string, page = 0, size = 50) =>
+        request<Page<ResumeQuestion>>(`/api/resumes/${resumeId}/questions?page=${page}&size=${size}`),
+    },
   },
   llmProfiles: {
     list: () => request<LlmProfile[]>("/api/llm-profiles"),
