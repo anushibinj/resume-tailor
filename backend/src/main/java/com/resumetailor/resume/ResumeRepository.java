@@ -19,6 +19,8 @@ public interface ResumeRepository extends JpaRepository<Resume, UUID> {
 
     Optional<Resume> findByIdAndOwnerId(UUID id, UUID ownerId);
 
+    boolean existsByIdAndOwnerId(UUID id, UUID ownerId);
+
     Optional<Resume> findByOwnerIdAndIsDefaultTrue(UUID ownerId);
 
     boolean existsByOwnerIdAndNameIgnoreCase(UUID ownerId, String name);
