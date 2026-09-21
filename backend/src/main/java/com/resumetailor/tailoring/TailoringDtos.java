@@ -39,6 +39,9 @@ public final class TailoringDtos {
             String resumeName,
             ResumeFormat format,
             Integer matchScore,
+            boolean applied,
+            Instant appliedAt,
+            String applicationLink,
             Instant createdAt,
             Instant finishedAt) {
     }
@@ -67,9 +70,20 @@ public final class TailoringDtos {
             /** Additions not tied to a current requirement, e.g. ones kept from an earlier check. */
             List<SuggestionResponse> otherSuggestions,
             SummaryResponse summary,
+            boolean applied,
+            Instant appliedAt,
+            String applicationLink,
             Instant createdAt,
             Instant startedAt,
             Instant finishedAt) {
+    }
+
+    /** The applied flag and link alone, returned by the two endpoints that only touch those. */
+    public record RunApplicationResponse(
+            UUID id,
+            boolean applied,
+            Instant appliedAt,
+            String applicationLink) {
     }
 
     /**
@@ -136,5 +150,12 @@ public final class TailoringDtos {
     }
 
     public record UpdateSuggestionRequest(@NotNull SuggestionStatus status) {
+    }
+
+    public record UpdateAppliedRequest(@NotNull Boolean applied) {
+    }
+
+    /** A blank or missing link clears it; free text, not validated as a URL. */
+    public record UpdateApplicationLinkRequest(@Size(max = 2048) String applicationLink) {
     }
 }

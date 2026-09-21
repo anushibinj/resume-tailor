@@ -117,6 +117,17 @@ public class TailoringRun extends AuditedEntity {
     @Column(name = "finished_at")
     private Instant finishedAt;
 
+    /** Recorded by the user, not inferred: several runs can be queued before any is applied to. */
+    @Column(name = "applied", nullable = false)
+    private boolean applied;
+
+    @Column(name = "applied_at")
+    private Instant appliedAt;
+
+    /** The posting or application-tracker URL for this run; free text, not validated as a URL. */
+    @Column(name = "application_link", columnDefinition = "text")
+    private String applicationLink;
+
     /** The document skeleton this run must rebuild into; the preamble is never re-derived. */
     public ParsedResume skeleton() {
         return new ParsedResume(format, preamble, originalBody, documentTail);

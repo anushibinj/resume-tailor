@@ -8,6 +8,7 @@ import com.resumetailor.resume.ResumeFormat;
 import com.resumetailor.tailoring.TailoringDtos.CreateRunRequest;
 import com.resumetailor.tailoring.TailoringDtos.KeywordResponse;
 import com.resumetailor.tailoring.TailoringDtos.RunDetail;
+import com.resumetailor.tailoring.TailoringDtos.RunSummary;
 import com.resumetailor.tailoring.TailoringDtos.SectionDiff;
 import com.resumetailor.tailoring.TailoringDtos.SuggestionResponse;
 import com.resumetailor.tailoring.TailoringDtos.SummaryResponse;
@@ -19,6 +20,8 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -83,6 +86,7 @@ class TailoringControllerTest {
                 new SummaryResponse(SummaryStatus.COMPLETED, null, 5, List.of(
                         new SummaryVariantResponse(4, "Short."),
                         new SummaryVariantResponse(5, "Medium."))),
+                false, null, null,
                 Instant.now(), Instant.now(), Instant.now());
     }
 
@@ -222,5 +226,62 @@ class TailoringControllerTest {
                 .andExpect(status().isNoContent());
 
         then(tailoringService).should().deleteRun(RUN_ID);
+    }
+
+    @Test
+    void listPassesTheAppliedFilterThrough() throws Exception {
+        given(tailoringService.listRuns(any(), any())).willReturn(new PageImpl<RunSummary>(List.of()));
+
+        mockMvc.perform(get("/api/runs").param("applied", "true"))
+                .andExpect(status().isOk());
+
+        then(tailoringService).should().listRuns(Boolean.TRUE, PageRequest.of(0, 20));
+    }
+
+    @Test
+    void listWithNoAppliedParamShowsEveryRun() throws Exception {
+        given(tailoringService.listRuns(any(), any())).willReturn(new PageImpl<RunSummary>(List.of()));
+
+        mockMvc.perform(get("/api/runs"))
+                .andExpect(status().isOk());
+
+        then(tailoringService).should().listRuns(null, PageRequest.of(0, 20));
+    }
+
+    @Test
+    void marksARunAppliedAndRecordsWhen() throws Exception {
+        Instant appliedAt = Instant.now();
+        given(tailoringService.setApplied(RUN_ID, true))
+                .willReturn(new TailoringDtos.RunApplicationResponse(RUN_ID, true, appliedAt, null));
+
+        mockMvc.perform(patch("/api/runs/{id}/applied", RUN_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"applied\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.applied").value(true))
+                .andExpect(jsonPath("$.appliedAt").exists());
+    }
+
+    @Test
+    void rejectsAnAppliedUpdateWithNoValue() throws Exception {
+        mockMvc.perform(patch("/api/runs/{id}/applied", RUN_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        then(tailoringService).should(org.mockito.Mockito.never()).setApplied(any(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
+    void setsTheApplicationLinkSoItCanBeReopenedLater() throws Exception {
+        String link = "https://boards.greenhouse.io/acme/jobs/123";
+        given(tailoringService.setApplicationLink(RUN_ID, link))
+                .willReturn(new TailoringDtos.RunApplicationResponse(RUN_ID, false, null, link));
+
+        mockMvc.perform(put("/api/runs/{id}/application-link", RUN_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"applicationLink\":\"" + link + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.applicationLink").value(link));
     }
 }

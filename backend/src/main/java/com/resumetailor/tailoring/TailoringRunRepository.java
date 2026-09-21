@@ -12,5 +12,7 @@ public interface TailoringRunRepository extends JpaRepository<TailoringRun, UUID
 
     Page<TailoringRun> findAllByOwnerIdOrderByCreatedAtDesc(UUID ownerId, Pageable pageable);
 
+    Page<TailoringRun> findAllByOwnerIdAndAppliedOrderByCreatedAtDesc(UUID ownerId, boolean applied, Pageable pageable);
+
     Optional<TailoringRun> findByIdAndOwnerId(UUID id, UUID ownerId);
 }

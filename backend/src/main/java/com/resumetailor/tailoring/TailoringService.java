@@ -15,6 +15,7 @@ import com.resumetailor.resume.ResumeService;
 import com.resumetailor.skill.SkillDefinitionService;
 import com.resumetailor.tailoring.TailoringDtos.CreateRunRequest;
 import com.resumetailor.tailoring.TailoringDtos.KeywordResponse;
+import com.resumetailor.tailoring.TailoringDtos.RunApplicationResponse;
 import com.resumetailor.tailoring.TailoringDtos.RunDetail;
 import com.resumetailor.tailoring.TailoringDtos.RunSummary;
 import com.resumetailor.tailoring.TailoringDtos.SuggestionResponse;
@@ -29,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -160,10 +162,13 @@ public class TailoringService {
         return toDetail(run);
     }
 
+    /** {@code applied} null means both; otherwise only runs matching that flag. */
     @Transactional(readOnly = true)
-    public Page<RunSummary> listRuns(Pageable pageable) {
-        Page<TailoringRun> page =
-                runRepository.findAllByOwnerIdOrderByCreatedAtDesc(currentUser.currentUserId(), pageable);
+    public Page<RunSummary> listRuns(Boolean applied, Pageable pageable) {
+        UUID ownerId = currentUser.currentUserId();
+        Page<TailoringRun> page = applied == null
+                ? runRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId, pageable)
+                : runRepository.findAllByOwnerIdAndAppliedOrderByCreatedAtDesc(ownerId, applied, pageable);
 
         Map<UUID, String> resumeNames = resumeNames(page.getContent());
         Map<UUID, JobDescription> jds = jobDescriptions(page.getContent());
@@ -178,6 +183,9 @@ public class TailoringService {
                     resumeNames.get(run.getResumeId()),
                     run.getFormat(),
                     displayScore(run),
+                    run.isApplied(),
+                    run.getAppliedAt(),
+                    run.getApplicationLink(),
                     run.getCreatedAt(),
                     run.getFinishedAt());
         });
@@ -218,6 +226,34 @@ public class TailoringService {
         // Accepting a gap closes it, so the score moves without another model call.
         store.recomputeScore(runId);
         return toDetail(run);
+    }
+
+    /**
+     * Recorded by the user, not inferred -- several runs can be tailored and reviewed
+     * before any is actually applied to. Flipping it back off clears {@code appliedAt}
+     * rather than keeping the first time it was set, so it always reflects the current state.
+     */
+    @Transactional
+    public RunApplicationResponse setApplied(UUID id, boolean applied) {
+        TailoringRun run = require(id);
+        run.setApplied(applied);
+        run.setAppliedAt(applied ? Instant.now() : null);
+        runRepository.save(run);
+        return toApplicationResponse(run);
+    }
+
+    /** A blank link clears it; the link is free text (not validated as a URL). */
+    @Transactional
+    public RunApplicationResponse setApplicationLink(UUID id, String applicationLink) {
+        TailoringRun run = require(id);
+        String trimmed = applicationLink == null ? null : applicationLink.strip();
+        run.setApplicationLink(trimmed == null || trimmed.isBlank() ? null : trimmed);
+        runRepository.save(run);
+        return toApplicationResponse(run);
+    }
+
+    private static RunApplicationResponse toApplicationResponse(TailoringRun run) {
+        return new RunApplicationResponse(run.getId(), run.isApplied(), run.getAppliedAt(), run.getApplicationLink());
     }
 
     /** The model's rewrite with the chosen summary length, plus every addition the user has accepted. */
@@ -303,6 +339,9 @@ public class TailoringService {
                 keywords,
                 other,
                 toSummary(run),
+                run.isApplied(),
+                run.getAppliedAt(),
+                run.getApplicationLink(),
                 run.getCreatedAt(),
                 run.getStartedAt(),
                 run.getFinishedAt());

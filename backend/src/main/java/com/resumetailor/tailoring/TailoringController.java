@@ -1,9 +1,12 @@
 package com.resumetailor.tailoring;
 
 import com.resumetailor.tailoring.TailoringDtos.CreateRunRequest;
+import com.resumetailor.tailoring.TailoringDtos.RunApplicationResponse;
 import com.resumetailor.tailoring.TailoringDtos.RunDetail;
 import com.resumetailor.tailoring.TailoringDtos.RunSummary;
 import com.resumetailor.tailoring.TailoringDtos.SelectSummaryRequest;
+import com.resumetailor.tailoring.TailoringDtos.UpdateAppliedRequest;
+import com.resumetailor.tailoring.TailoringDtos.UpdateApplicationLinkRequest;
 import com.resumetailor.tailoring.TailoringDtos.UpdateSuggestionRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -42,14 +46,29 @@ public class TailoringController {
         return tailoringService.createRun(request);
     }
 
+    /** {@code applied} filters the list when given; omitted shows every run. */
     @GetMapping
-    public Page<RunSummary> list(@PageableDefault(size = 20) Pageable pageable) {
-        return tailoringService.listRuns(pageable);
+    public Page<RunSummary> list(@RequestParam(required = false) Boolean applied,
+                                  @PageableDefault(size = 20) Pageable pageable) {
+        return tailoringService.listRuns(applied, pageable);
     }
 
     @GetMapping("/{id}")
     public RunDetail get(@PathVariable UUID id) {
         return tailoringService.getRun(id);
+    }
+
+    /** Recorded by the user, not inferred -- see {@link TailoringService#setApplied}. */
+    @PatchMapping("/{id}/applied")
+    public RunApplicationResponse setApplied(@PathVariable UUID id, @Valid @RequestBody UpdateAppliedRequest request) {
+        return tailoringService.setApplied(id, request.applied());
+    }
+
+    /** The posting or application-tracker URL for this run; a blank body clears it. */
+    @PutMapping("/{id}/application-link")
+    public RunApplicationResponse setApplicationLink(@PathVariable UUID id,
+                                                       @Valid @RequestBody UpdateApplicationLinkRequest request) {
+        return tailoringService.setApplicationLink(id, request.applicationLink());
     }
 
     @PatchMapping("/{id}/suggestions/{suggestionId}")
