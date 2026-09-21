@@ -70,4 +70,31 @@ class PromptsTest {
         assertThat(Prompts.gapAnalysisSystem(ResumeFormat.LATEX))
                 .contains("Say nothing about the candidate");
     }
+
+    @Test
+    void summaryOptionsAreWrittenFromTheOriginalNeverFromTheJobsWishList() {
+        for (ResumeFormat format : ResumeFormat.values()) {
+            String system = Prompts.summaryVariantsSystem(format, 90);
+            assertThat(system).contains("NEVER invent facts");
+            assertThat(system).contains("is not their title");
+            assertThat(system).contains("does not appear, however much the job asks for it");
+        }
+
+        JdAnalysisResult analysis = new JdAnalysisResult(
+                "Microsoft", "Principal Software Engineer", List.of(), List.of(), List.of("Own the platform"), null);
+        String user = Prompts.summaryVariantsUser(analysis, "ORIGINAL-TEXT", "REWRITE-TEXT");
+
+        assertThat(user).contains("the only source of facts):\nORIGINAL-TEXT");
+        assertThat(user).contains("find the summary here and copy it exactly):\nREWRITE-TEXT");
+        assertThat(user).contains("NOT the candidate's own title");
+    }
+
+    @Test
+    void summaryLengthsBecomeACharacterBudgetFromTheConfiguredLineWidth() {
+        String system = Prompts.summaryVariantsSystem(ResumeFormat.MARKDOWN, 100);
+
+        assertThat(system).contains("4 lines: 350 to 400 characters");
+        assertThat(system).contains("7 lines: 650 to 700 characters");
+        assertThat(system).contains("about 100 visible");
+    }
 }

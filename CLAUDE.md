@@ -141,7 +141,7 @@ Backend packages under `com.resumetailor` are organised by **feature**, not by l
 | `resume`    | Base resumes, format detection, preamble split, section segmentation |
 | `jd`        | Job descriptions and the cached analysis |
 | `llm`       | LLM profiles, AES-GCM key crypto, OpenAI-compatible client |
-| `tailoring` | Prompts, the three-call pipeline, run entities, gap analysis, diff building |
+| `tailoring` | Prompts, the four-call pipeline, run entities, summary options, gap analysis, diff building |
 | `keyword`   | Requirement types, the weighted coverage score, `KeywordNormalizer` |
 | `skill`     | The shared (not owner-scoped) glossary of what each skill is |
 | `pdf`       | `PdfCompiler` and the Docker TeX implementation |
@@ -154,7 +154,8 @@ Backend packages under `com.resumetailor` are organised by **feature**, not by l
 2. Work starts in `afterCommit` so the async thread can actually see the row.
 3. `TailoringRunner` (on `tailoringExecutor`): resolve LLM settings → `JdAnalyzer`
    (call 1, cached per JD and per prompt version) → tailoring call (call 2) → save the
-   rewrite → `GapAnalyzer` (call 3) → save requirements and their additions. Call 3 also
+   rewrite → `SummaryWriter` (call 3, the summary at 4-7 lines) → `GapAnalyzer` (call 4) →
+   save requirements and their additions. Call 4 also
    explains any requirement missing from the shared glossary (`SkillDefinitionService`);
    only those are asked for, and they are stored after the gaps are saved, in a failure
    that cannot fail the check.
@@ -173,6 +174,14 @@ told separately about additions the user already accepted, so the model can poin
 (`addressedBy`) rather than proposing it again. Judging a document with additions already applied would report the
 requirement as covered, detach the addition from it, and leave the requirement stuck as
 covered after the addition was removed.
+
+Summary length options work like the gap check: their own `summary_status`, failure
+contained (the rewrite stays), retry via `POST /api/runs/{id}/summary`. They are stored as
+JSON on `tailoring_runs` and **`tailored_body` is never edited** -- the chosen length is
+swapped in by `EffectiveBody` when the document is composed, *before* accepted additions,
+so moving the slider cannot erase an addition the user accepted (rule 4). The quoted
+summary must be found in the body or the options are rejected; do not guess a location.
+Like the rewrite, variants take facts from the original only (rule 5).
 
 Failures are recorded on the run (`status=FAILED`, `error_message`) rather than thrown at
 the user, so the message survives a page reload.

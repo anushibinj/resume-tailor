@@ -3,6 +3,7 @@ package com.resumetailor.tailoring;
 import com.resumetailor.tailoring.TailoringDtos.CreateRunRequest;
 import com.resumetailor.tailoring.TailoringDtos.RunDetail;
 import com.resumetailor.tailoring.TailoringDtos.RunSummary;
+import com.resumetailor.tailoring.TailoringDtos.SelectSummaryRequest;
 import com.resumetailor.tailoring.TailoringDtos.UpdateSuggestionRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -62,6 +64,19 @@ public class TailoringController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public RunDetail recheckGaps(@PathVariable UUID id) {
         return tailoringService.requestGapRecheck(id);
+    }
+
+    /** Picks one of the summary lengths already written; instant, no model call. */
+    @PutMapping("/{id}/summary")
+    public RunDetail selectSummary(@PathVariable UUID id, @Valid @RequestBody SelectSummaryRequest request) {
+        return tailoringService.selectSummaryLines(id, request.lines());
+    }
+
+    /** Writes the summary lengths (again): for runs that predate them, or after a failure. */
+    @PostMapping("/{id}/summary")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public RunDetail generateSummary(@PathVariable UUID id) {
+        return tailoringService.requestSummary(id);
     }
 
     @DeleteMapping("/{id}")

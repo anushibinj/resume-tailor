@@ -25,6 +25,10 @@ const KeywordMargin = dynamic(
   () => import("@/components/keyword-margin").then((mod) => mod.KeywordMargin),
   { loading: () => <KeywordMarginSkeleton /> },
 );
+const SummaryLength = dynamic(
+  () => import("@/components/summary-length").then((mod) => mod.SummaryLength),
+  { loading: () => <SummaryLengthSkeleton /> },
+);
 
 type Tab = "review" | "source" | "posting";
 
@@ -38,15 +42,18 @@ export default function RunPage() {
   const run = useQuery({
     queryKey: ["run", id],
     queryFn: () => api.runs.get(id),
-    // Poll while any work is outstanding. The gap check runs after the rewrite is already
-    // saved, so the run can be COMPLETED while its requirements are still being judged.
+    // Poll while any work is outstanding. The summary options and the gap check both run
+    // after the rewrite is already saved, so the run can be COMPLETED while either is still
+    // being worked on.
     refetchInterval: (query) => {
       const data = query.state.data;
       const working =
         data?.status === "PENDING" ||
         data?.status === "RUNNING" ||
         data?.gapsStatus === "PENDING" ||
-        data?.gapsStatus === "RUNNING";
+        data?.gapsStatus === "RUNNING" ||
+        data?.summary?.status === "PENDING" ||
+        data?.summary?.status === "RUNNING";
       return working ? 2000 : false;
     },
   });
@@ -58,6 +65,35 @@ export default function RunPage() {
     onSuccess: (updated) => queryClient.setQueryData(["run", id], updated),
     onError: (error: unknown) => toast.error(describeError(error)),
     onSettled: () => setPendingSuggestion(null),
+  });
+
+  // Switching length only swaps in text that was already written, so it is cheap and the
+  // slider applies each move to the cached run straight away. Moves are queued one after
+  // another (the scope) so they reach the server in the order they were made, and the run is
+  // refetched once the last one lands: that brings the diff and source in line with the final
+  // choice, and snaps the slider back if one was refused.
+  const selectSummary = useMutation({
+    mutationKey: ["run", id, "summary"],
+    scope: { id: `run-summary-${id}` },
+    mutationFn: (lines: number) => api.runs.selectSummary(id, lines),
+    onMutate: async (lines) => {
+      await queryClient.cancelQueries({ queryKey: ["run", id] });
+      queryClient.setQueryData<RunDetail>(["run", id], (old) =>
+        old ? { ...old, summary: { ...old.summary, selectedLines: lines } } : old,
+      );
+    },
+    onError: (error: unknown) => toast.error(describeError(error)),
+    onSettled: () => {
+      if (queryClient.isMutating({ mutationKey: ["run", id, "summary"] }) <= 1) {
+        queryClient.invalidateQueries({ queryKey: ["run", id] });
+      }
+    },
+  });
+
+  const generateSummary = useMutation({
+    mutationFn: () => api.runs.generateSummary(id),
+    onSuccess: (updated) => queryClient.setQueryData(["run", id], updated),
+    onError: (error: unknown) => toast.error(describeError(error)),
   });
 
   const recheck = useMutation({
@@ -199,6 +235,15 @@ export default function RunPage() {
       {data.status === "COMPLETED" ? (
         <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
           <div className="min-w-0">
+            <div className="mb-5">
+              <SummaryLength
+                summary={data.summary}
+                onSelect={(lines) => selectSummary.mutate(lines)}
+                onGenerate={() => generateSummary.mutate()}
+                generating={generateSummary.isPending}
+              />
+            </div>
+
             <nav className="mb-4 flex gap-1 border-b border-rule">
               <TabButton current={tab} value="review" onSelect={setTab}>
                 Review edits
@@ -427,6 +472,16 @@ function SectionDiffViewSkeleton() {
           <Skeleton className="h-4 w-40" />
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Approximates the slider panel `SummaryLength` renders once loaded. */
+function SummaryLengthSkeleton() {
+  return (
+    <div className="space-y-3 rounded-sm border border-rule bg-surface p-4">
+      <Skeleton className="h-4 w-32" />
+      <Skeleton className="h-4 w-full" />
     </div>
   );
 }

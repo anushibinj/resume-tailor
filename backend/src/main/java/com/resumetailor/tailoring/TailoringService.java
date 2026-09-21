@@ -18,6 +18,8 @@ import com.resumetailor.tailoring.TailoringDtos.KeywordResponse;
 import com.resumetailor.tailoring.TailoringDtos.RunDetail;
 import com.resumetailor.tailoring.TailoringDtos.RunSummary;
 import com.resumetailor.tailoring.TailoringDtos.SuggestionResponse;
+import com.resumetailor.tailoring.TailoringDtos.SummaryResponse;
+import com.resumetailor.tailoring.TailoringDtos.SummaryVariantResponse;
 import com.resumetailor.user.CurrentUserProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -78,6 +80,7 @@ public class TailoringService {
         run.setLlmProfileId(profileId);
         run.setStatus(RunStatus.PENDING);
         run.setGapsStatus(GapsStatus.PENDING);
+        run.setSummaryStatus(SummaryStatus.PENDING);
         run.setFormat(resume.getFormat());
         run.setOriginalSource(resume.getSourceText());
         run.setOriginalBody(resume.getBodyText());
@@ -113,6 +116,47 @@ public class TailoringService {
 
         UUID runId = run.getId();
         afterCommit(() -> runner.analyzeGaps(runId));
+        return toDetail(run);
+    }
+
+    /**
+     * Writes the summary at each length, for runs that predate the options or whose first
+     * attempt failed. Any length already chosen stays in the document until new options land.
+     */
+    @Transactional
+    public RunDetail requestSummary(UUID id) {
+        TailoringRun run = require(id);
+        if (run.getStatus() != RunStatus.COMPLETED || run.getTailoredBody() == null) {
+            throw new BadRequestException("This run has not produced a tailored resume yet");
+        }
+        if (run.getSummaryStatus() == SummaryStatus.PENDING || run.getSummaryStatus() == SummaryStatus.RUNNING) {
+            throw new BadRequestException("Summary options are already being written for this run");
+        }
+        run.setSummaryStatus(SummaryStatus.PENDING);
+        run.setSummaryError(null);
+        runRepository.save(run);
+
+        UUID runId = run.getId();
+        afterCommit(() -> runner.regenerateSummary(runId));
+        return toDetail(run);
+    }
+
+    /**
+     * Switches to one of the lengths already written. Like accepting an addition it rebuilds
+     * the document from the pristine rewrite, so no length is ever a one-way edit.
+     */
+    @Transactional
+    public RunDetail selectSummaryLines(UUID id, int lines) {
+        TailoringRun run = require(id);
+        boolean exists = SummaryVariants.fromJson(run.getSummaryVariants()).stream()
+                .anyMatch(variant -> variant.lines() == lines);
+        if (!exists) {
+            throw new BadRequestException("This run has no " + lines + "-line summary to choose");
+        }
+        run.setSummaryLines(lines);
+        run.setTailoredSource(ResumeParser.reassemble(
+                run.getPreamble(), effectiveBody(run), run.getDocumentTail()));
+        runRepository.save(run);
         return toDetail(run);
     }
 
@@ -176,17 +220,10 @@ public class TailoringService {
         return toDetail(run);
     }
 
-    /** The model's rewrite plus every addition the user has accepted. */
+    /** The model's rewrite with the chosen summary length, plus every addition the user has accepted. */
     private String effectiveBody(TailoringRun run) {
-        String body = run.getTailoredBody();
-        if (body == null) {
-            return "";
-        }
-        for (RunSuggestion accepted : suggestionRepository
-                .findAllByRunIdAndStatusOrderByOrdinalAsc(run.getId(), SuggestionStatus.ACCEPTED)) {
-            body = AdditionApplier.apply(body, run.getFormat(), accepted);
-        }
-        return body;
+        return EffectiveBody.compose(run, suggestionRepository
+                .findAllByRunIdAndStatusOrderByOrdinalAsc(run.getId(), SuggestionStatus.ACCEPTED));
     }
 
     private TailoringRun require(UUID id) {
@@ -265,9 +302,20 @@ public class TailoringService {
                 SectionDiffBuilder.build(run.getOriginalBody(), tailoredBody, run.getFormat(), changes),
                 keywords,
                 other,
+                toSummary(run),
                 run.getCreatedAt(),
                 run.getStartedAt(),
                 run.getFinishedAt());
+    }
+
+    private static SummaryResponse toSummary(TailoringRun run) {
+        return new SummaryResponse(
+                run.getSummaryStatus(),
+                run.getSummaryError(),
+                run.getSummaryLines(),
+                SummaryVariants.fromJson(run.getSummaryVariants()).stream()
+                        .map(variant -> new SummaryVariantResponse(variant.lines(), variant.text()))
+                        .toList());
     }
 
     private static SuggestionResponse toResponse(RunSuggestion suggestion) {

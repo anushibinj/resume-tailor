@@ -66,7 +66,7 @@ public final class AdditionApplier {
      * Locates the anchor, preferring an exact match and falling back to one where runs of
      * whitespace differ -- models routinely re-wrap the lines they quote back.
      */
-    private static int[] findAnchor(String body, ResumeFormat format, String anchor) {
+    static int[] findAnchor(String body, ResumeFormat format, String anchor) {
         String needle = anchor.strip();
         if (needle.isEmpty()) {
             return null;

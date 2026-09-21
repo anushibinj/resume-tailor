@@ -193,6 +193,11 @@ export const api = {
       }),
     remove: (id: string) => request<void>(`/api/runs/${id}`, { method: "DELETE" }),
     recheckGaps: (id: string) => request<RunDetail>(`/api/runs/${id}/gaps`, { method: "POST" }),
+    /** Instant: switches to a summary length that was already written. */
+    selectSummary: (id: string, lines: number) =>
+      request<RunDetail>(`/api/runs/${id}/summary`, { method: "PUT", body: JSON.stringify({ lines }) }),
+    /** Writes the summary lengths (again); returns 202 and the page polls until they land. */
+    generateSummary: (id: string) => request<RunDetail>(`/api/runs/${id}/summary`, { method: "POST" }),
     pdfAvailable: (id: string) => request<{ enabled: boolean }>(`/api/runs/${id}/pdf/available`),
     downloadSource: (id: string) => download(`/api/runs/${id}/export`),
     compilePdf: (id: string) => download(`/api/runs/${id}/pdf`, { method: "POST" }),

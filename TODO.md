@@ -60,6 +60,10 @@ decisions stays readable.
 
 ## Smaller cleanups
 
+- [ ] Summary "N lines" is estimated from `SUMMARY_CHARS_PER_LINE`, not measured. Compiling
+      each variant and counting rendered lines would make the slider exact, at the cost of
+      a Docker compile per length.
+
 - [ ] Gap analysis adds a third model call per run. If that gets expensive on a metered
       API, it could be folded into the tailoring call — at the cost of the model judging
       its own rewrite in the same breath as writing it.

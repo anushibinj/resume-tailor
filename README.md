@@ -106,6 +106,8 @@ Open <http://localhost:3000>.
    read from, and use **Add to resume** on the gaps you want to close. Hover a missing
    skill (or its **?**) for a short plain-language explanation of what it is. Additions land
    inside your existing lists and can be removed again at any point.
+   The **Summary length** slider above the diff sets how long the summary is, from about 4
+   to 7 lines. Every length is written up front, so moving the slider is instant.
 6. **Export** — download the `.tex`/`.md`, or compile a PDF.
 7. **Ask** — pick a resume and ask it a single question ("Briefly tell about my core
    experience and technical strengths"). The answer comes back in one response; asking
@@ -124,17 +126,20 @@ Next.js (:3000) ──REST──▶ Spring Boot (:8080) ──▶ Postgres (:543
 A run is asynchronous: `POST /api/runs` returns immediately with a `PENDING` run and the
 UI polls until it finishes, so a slow model never holds an HTTP connection open.
 
-Three LLM calls per run:
+Four LLM calls per run:
 
 1. **Analyse the posting** → company, role, required/preferred/nice requirements.
    Cached per job description, so re-running costs nothing.
 2. **Tailor the resume** → the rewritten body and a per-section change log with reasons.
-3. **Check the result** → which requirements your resume covers, with the line of your
+3. **Write the summary at several lengths** → the rewrite's summary paragraph again at 4, 5,
+   6 and 7 lines, so the run page's slider can switch between them without waiting on a
+   model. Optional: if it fails, the rewrite is untouched and the slider offers a retry.
+4. **Check the result** → which requirements your resume covers, with the line of your
    original resume behind each verdict, plus the exact edit that would add each one it
    misses. It also explains, in a sentence or two, any requirement nobody has had explained
    yet (see below).
 
-Java does the arithmetic on step 3 (required counts 3, preferred 2, nice-to-have 1) but
+Java does the arithmetic on step 4 (required counts 3, preferred 2, nice-to-have 1) but
 not the judging. Coverage used to be decided by literal keyword matching, which reported
 a Java developer's resume as missing "Java" because the posting called it
 "Java (Programming Language)". Whether a resume covers a requirement is a question about
@@ -146,6 +151,25 @@ model can still slip, and if the rewrite were the thing being judged it could vo
 its own invention: a Java developer's tagline sprouting "C | C++ | C#" would then report
 those as covered. Judged on the original, they show as gaps you can choose to add, and
 the rewrite is used only to place the addition.
+
+### How the summary slider works
+
+The model writes a summary in the rewrite and then, in its own call, writes it again at each
+length. It quotes the summary back verbatim so Java can find it in the rewrite; if the
+quote isn't in your resume, the options are discarded rather than swapped in somewhere
+guessed. Variants come from your **original** resume only — a longer one adds detail your
+resume already has, never detail it lacks — and a LaTeX variant with unbalanced braces is
+dropped, because it would stop the document compiling.
+
+Choosing a length never edits the rewrite. The run keeps the model's summary as written and
+the chosen variant replaces it when the document is composed, *before* your accepted
+additions are applied, so moving the slider can never wipe out an addition you accepted.
+New runs start at 5 lines. Runs from before this feature show a **Write summary options**
+button instead.
+
+"N lines" is an estimate. Only compiling the PDF shows how many lines a paragraph really
+takes, so the model is given a character budget (`SUMMARY_CHARS_PER_LINE` characters per
+line, 90 by default). If your template's text is wider or narrower, change that value.
 
 ### What a skill is: a glossary shared by every user
 
@@ -215,6 +239,8 @@ with no network, no shell escape, a memory cap and a hard timeout.
 | `DELETE` | `/api/runs/{id}` | Delete a run and its compiled PDF |
 | `PATCH` | `/api/runs/{id}/suggestions/{sid}` | Add / skip / remove an addition |
 | `POST` | `/api/runs/{id}/gaps` | Re-check the requirements with your model |
+| `PUT` | `/api/runs/{id}/summary` | Choose a summary length (`{"lines": 4-7}`); instant, no model call |
+| `POST` | `/api/runs/{id}/summary` | Write the summary lengths (again); 202, the page polls |
 | `GET` | `/api/runs/{id}/export` | Download the tailored `.tex` / `.md` |
 | `POST/GET` | `/api/runs/{id}/pdf` | Compile / download the PDF |
 | `GET/POST` | `/api/llm-profiles` | Manage model connections |
@@ -260,6 +286,7 @@ comments) and `frontend/.env.local`.
 | `JWT_EXPIRATION_MINUTES` | `1440` | How long a session token is valid |
 | `DATABASE_URL` | `jdbc:postgresql://localhost:5432/resume_tailor` | |
 | `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` | OpenAI defaults | Seeds a profile for each new user's first sign-in |
+| `SUMMARY_CHARS_PER_LINE` | `90` | Characters in one rendered summary line; turns the slider's "N lines" into a budget for the model |
 | `PDF_ENABLED` | `true` | `false` hides PDF export; source download still works |
 | `TEX_IMAGE` | `resume-tailor-tex` | Image built from `docker/tex` |
 | `PDF_TIMEOUT_SECONDS` | `120` | Hard cap on a compile |

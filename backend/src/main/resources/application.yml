@@ -58,6 +58,10 @@ resume-tailor:
     default-temperature: ${LLM_TEMPERATURE:0.2}
     default-max-output-tokens: ${LLM_MAX_OUTPUT_TOKENS:8000}
     request-timeout-seconds: ${LLM_TIMEOUT_SECONDS:180}
+  summary:
+    # Visible characters in one rendered line of the summary. Turns the slider's "N lines"
+    # into a character budget for the model; tune it to your template's text width.
+    chars-per-line: ${SUMMARY_CHARS_PER_LINE:90}
   pdf:
     enabled: ${PDF_ENABLED:true}
     docker-binary: ${DOCKER_BINARY:docker}

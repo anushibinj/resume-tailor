@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.resumetailor.keyword.JdKeyword;
 import com.resumetailor.keyword.KeywordImportance;
 import com.resumetailor.llm.LlmException;
+import com.resumetailor.resume.ResumeFormat;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -313,5 +314,100 @@ class LlmResponseParserTest {
         assertThat(verdicts.get(1).description()).isEqualTo("A compiled language from Google.");
         // Asked-for but blank, or never asked for: nothing to store.
         assertThat(verdicts.get(2).description()).isNull();
+    }
+
+    // ------------------------------------------------------------ summary options
+
+    private static final String RESUME = """
+            \\section{Summary}
+            Lead engineer with ten years building Java services.
+
+            \\section{Skills}
+            Java, Kafka
+            """;
+
+    private static String summaryReply(String original, String... variants) {
+        StringBuilder sb = new StringBuilder("{\"original\": " + original + ", \"variants\": [");
+        for (int i = 0; i < variants.length; i++) {
+            sb.append(i > 0 ? "," : "").append(variants[i]);
+        }
+        return sb.append("]}").toString();
+    }
+
+    private static String variant(int lines, String text) {
+        return "{\"lines\": " + lines + ", \"text\": \"" + text + "\"}";
+    }
+
+    @Test
+    void parsesSummaryOptionsShortestFirstAndKeepsTheTextAsItStandsInTheBody() {
+        // The model re-wrapped the quote; the stored original is the body's own text.
+        String reply = summaryReply("\"Lead engineer with ten years\\nbuilding Java services.\"",
+                variant(7, "Seven."), variant(4, "Four."), variant(5, "Five."));
+
+        SummaryOptions options = parser.parseSummaryOptions(reply, RESUME, ResumeFormat.LATEX, "m");
+
+        assertThat(options.original()).isEqualTo("Lead engineer with ten years building Java services.");
+        assertThat(options.variants()).extracting(SummaryOptions.Variant::lines).containsExactly(4, 5, 7);
+    }
+
+    @Test
+    void aResumeWithNoSummaryYieldsNoOptionsRatherThanAnError() {
+        SummaryOptions options = parser.parseSummaryOptions(
+                summaryReply("null"), RESUME, ResumeFormat.LATEX, "m");
+
+        assertThat(options.original()).isNull();
+        assertThat(options.variants()).isEmpty();
+    }
+
+    @Test
+    void aQuotedSummaryThatIsNotInTheResumeIsRejectedNotGuessedAt() {
+        assertThatThrownBy(() -> parser.parseSummaryOptions(
+                summaryReply("\"A summary the resume never had.\"", variant(4, "a"), variant(5, "b")),
+                RESUME, ResumeFormat.LATEX, "m"))
+                .isInstanceOf(LlmException.class)
+                .hasMessageContaining("not in your resume");
+    }
+
+    @Test
+    void aQuoteInsideACommentedOutLineIsNotTheSummary() {
+        String commented = "% Old summary that is commented out.\n\\section{Skills}\nJava\n";
+
+        assertThatThrownBy(() -> parser.parseSummaryOptions(
+                summaryReply("\"Old summary that is commented out.\"", variant(4, "a"), variant(5, "b")),
+                commented, ResumeFormat.LATEX, "m"))
+                .isInstanceOf(LlmException.class);
+    }
+
+    @Test
+    void dropsLatexVariantsThatWouldNotCompileAndKeepsTheRest() {
+        String reply = summaryReply("\"Lead engineer with ten years building Java services.\"",
+                variant(4, "Ok \\\\textbf{Java}"),
+                variant(5, "Broken \\\\textbf{Java"),
+                variant(6, "Also fine."));
+
+        SummaryOptions options = parser.parseSummaryOptions(reply, RESUME, ResumeFormat.LATEX, "m");
+
+        assertThat(options.variants()).extracting(SummaryOptions.Variant::lines).containsExactly(4, 6);
+    }
+
+    @Test
+    void ignoresLengthsOutsideTheSliderAndDuplicates() {
+        String reply = summaryReply("\"Lead engineer with ten years building Java services.\"",
+                variant(2, "Too short."), variant(4, "First."), variant(4, "Second."),
+                variant(5, "Five."), variant(9, "Too long."));
+
+        SummaryOptions options = parser.parseSummaryOptions(reply, RESUME, ResumeFormat.LATEX, "m");
+
+        assertThat(options.variants()).containsExactly(
+                new SummaryOptions.Variant(4, "First."), new SummaryOptions.Variant(5, "Five."));
+    }
+
+    @Test
+    void oneUsableLengthIsNotASliderSoTheReplyIsRejected() {
+        assertThatThrownBy(() -> parser.parseSummaryOptions(
+                summaryReply("\"Lead engineer with ten years building Java services.\"", variant(4, "Only.")),
+                RESUME, ResumeFormat.LATEX, "m"))
+                .isInstanceOf(LlmException.class)
+                .hasMessageContaining("at least 2");
     }
 }

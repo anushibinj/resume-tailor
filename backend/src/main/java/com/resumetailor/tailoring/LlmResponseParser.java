@@ -7,6 +7,7 @@ import com.resumetailor.keyword.KeywordImportance;
 import com.resumetailor.keyword.KeywordNormalizer;
 import com.resumetailor.llm.JsonExtractor;
 import com.resumetailor.llm.LlmException;
+import com.resumetailor.resume.ResumeFormat;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 
 /**
@@ -86,6 +88,75 @@ public class LlmResponseParser {
         }
 
         return new TailorOutput(body, changes);
+    }
+
+    /**
+     * Reads the summary length options, guaranteeing that {@code original} really is text in
+     * the tailored body.
+     *
+     * <p>A variant replaces exactly that text, so a quote that cannot be found is an error,
+     * not something to guess a location for: replacing the wrong span would damage the resume
+     * while the UI reported a tidy summary. LaTeX variants with unbalanced braces are dropped
+     * for the same reason -- one would stop the document compiling.
+     */
+    public SummaryOptions parseSummaryOptions(String raw, String tailoredBody, ResumeFormat format,
+                                              String modelUsed) {
+        JsonNode root = readJson(raw);
+
+        String original = textOrNull(root, "original");
+        if (original == null) {
+            return SummaryOptions.none(modelUsed);
+        }
+        int[] span = AdditionApplier.findAnchor(tailoredBody, format, original);
+        if (span == null) {
+            log.warn("Summary options quoted text not found in the resume; raw reply began: {}", preview(raw));
+            throw new LlmException(
+                    "The model quoted a summary that is not in your resume, so its options were discarded "
+                            + "rather than swapped into the wrong place. Try again, or use a more capable model.");
+        }
+
+        Map<Integer, String> byLines = new TreeMap<>();
+        for (JsonNode node : root.path("variants")) {
+            int lines = node.path("lines").asInt(0);
+            String text = textOrNull(node, "text");
+            if (lines < SummaryVariants.MIN_LINES || lines > SummaryVariants.MAX_LINES || text == null) {
+                continue;
+            }
+            if (format == ResumeFormat.LATEX && !bracesBalanced(text)) {
+                log.warn("Dropping a {}-line summary option with unbalanced braces", lines);
+                continue;
+            }
+            byLines.putIfAbsent(lines, text);
+        }
+        // One option is not a slider. Fewer than two usable means the reply was cut short or
+        // in the wrong shape, which is worth a retry rather than a half-empty control.
+        if (byLines.size() < 2) {
+            throw new LlmException(
+                    "The model returned " + byLines.size() + " usable summary lengths; at least 2 are needed. "
+                            + "Its reply was probably cut short -- check Max output tokens in Settings, then try again.");
+        }
+
+        List<SummaryOptions.Variant> variants = byLines.entrySet().stream()
+                .map(entry -> new SummaryOptions.Variant(entry.getKey(), entry.getValue()))
+                .toList();
+        // The text as it stands in the body, not as the model retyped it, so it is replaced exactly.
+        return new SummaryOptions(tailoredBody.substring(span[0], span[1]), variants, modelUsed);
+    }
+
+    /** Unescaped braces must pair up; a brace escaped with a backslash is a literal and is skipped. */
+    private static boolean bracesBalanced(String text) {
+        int depth = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\\') {
+                i++;
+            } else if (c == '{') {
+                depth++;
+            } else if (c == '}' && --depth < 0) {
+                return false;
+            }
+        }
+        return depth == 0;
     }
 
     /**

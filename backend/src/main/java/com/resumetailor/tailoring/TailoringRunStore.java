@@ -35,6 +35,7 @@ public class TailoringRunStore {
         TailoringRun run = runRepository.findById(runId).orElseThrow();
         run.setStatus(RunStatus.RUNNING);
         run.setGapsStatus(GapsStatus.PENDING);
+        run.setSummaryStatus(SummaryStatus.PENDING);
         run.setStartedAt(Instant.now());
         runRepository.save(run);
         return new RunContext(
@@ -58,15 +59,15 @@ public class TailoringRunStore {
     }
 
     /**
-     * Saves the rewrite and hands back what the gap analysis needs.
+     * Saves the rewrite and hands back what the summary options need.
      *
      * <p>The run is marked COMPLETED here, before gaps are known: the rewrite is the slow,
      * expensive part and is worth showing immediately. Gap analysis then runs on its own
      * status, so failing it leaves the rewrite intact and retryable.
      */
     @Transactional
-    public GapContext saveRewrite(UUID runId, TailorOutput output, String modelUsed,
-                                  Integer promptTokens, Integer completionTokens) {
+    public SummaryContext saveRewrite(UUID runId, TailorOutput output, String modelUsed,
+                                      Integer promptTokens, Integer completionTokens) {
         TailoringRun run = runRepository.findById(runId).orElseThrow();
 
         run.setTailoredBody(output.tailoredBody());
@@ -80,6 +81,12 @@ public class TailoringRunStore {
         run.setStatus(RunStatus.COMPLETED);
         run.setGapsStatus(GapsStatus.RUNNING);
         run.setGapsError(null);
+        // A re-run of the same row starts its summary options over too.
+        run.setSummaryStatus(SummaryStatus.RUNNING);
+        run.setSummaryError(null);
+        run.setSummaryOriginal(null);
+        run.setSummaryVariants(null);
+        run.setSummaryLines(null);
         run.setFinishedAt(Instant.now());
         runRepository.save(run);
 
@@ -99,9 +106,61 @@ public class TailoringRunStore {
             changeRepository.save(change);
         }
 
-        return new GapContext(
-                runId, run.getJobDescriptionId(), run.getLlmProfileId(), run.getFormat(),
-                run.getOriginalBody(), output.tailoredBody(), List.of());
+        return summaryContext(run);
+    }
+
+    /** Marks the summary options as being written and hands back the pristine rewrite to resize. */
+    @Transactional
+    public SummaryContext beginSummary(UUID runId) {
+        TailoringRun run = runRepository.findById(runId).orElseThrow();
+        run.setSummaryStatus(SummaryStatus.RUNNING);
+        run.setSummaryError(null);
+        runRepository.save(run);
+        return summaryContext(run);
+    }
+
+    /**
+     * Stores freshly written options and applies the default length.
+     *
+     * <p>Options are replaced whole, so a regeneration starts from the model's pristine
+     * summary again rather than from a length picked out of an older set. The document is
+     * rebuilt because the default length changes what the user sees and exports.
+     */
+    @Transactional
+    public void saveSummary(UUID runId, SummaryOptions options) {
+        TailoringRun run = runRepository.findById(runId).orElseThrow();
+
+        boolean found = options.original() != null && !options.variants().isEmpty();
+        run.setSummaryOriginal(found ? options.original() : null);
+        run.setSummaryVariants(found ? SummaryVariants.toJson(options.variants()) : null);
+        run.setSummaryLines(found ? SummaryVariants.defaultSelection(options.variants()) : null);
+        run.setSummaryStatus(SummaryStatus.COMPLETED);
+        run.setSummaryError(null);
+        run.setTailoredSource(ResumeParser.reassemble(
+                run.getPreamble(),
+                EffectiveBody.compose(run, suggestionRepository
+                        .findAllByRunIdAndStatusOrderByOrdinalAsc(runId, SuggestionStatus.ACCEPTED)),
+                run.getDocumentTail()));
+        runRepository.save(run);
+    }
+
+    /** A failure leaves any earlier options and the chosen length exactly as they were. */
+    @Transactional
+    public void markSummaryFailed(UUID runId, String message) {
+        runRepository.findById(runId).ifPresent(run -> {
+            run.setSummaryStatus(SummaryStatus.FAILED);
+            run.setSummaryError(message);
+            runRepository.save(run);
+        });
+    }
+
+    /**
+     * The document as it currently stands, for gap analysis to anchor additions in. Read after
+     * the summary options are written so anchors come from the summary the user is looking at.
+     */
+    @Transactional(readOnly = true)
+    public GapContext gapContext(UUID runId) {
+        return gapContext(runRepository.findById(runId).orElseThrow());
     }
 
     /** Marks gap analysis as started and gathers the current document plus its additions. */
@@ -111,9 +170,12 @@ public class TailoringRunStore {
         run.setGapsStatus(GapsStatus.RUNNING);
         run.setGapsError(null);
         runRepository.save(run);
+        return gapContext(run);
+    }
 
+    private GapContext gapContext(TailoringRun run) {
         List<RunSuggestion> accepted = suggestionRepository
-                .findAllByRunIdAndStatusOrderByOrdinalAsc(runId, SuggestionStatus.ACCEPTED);
+                .findAllByRunIdAndStatusOrderByOrdinalAsc(run.getId(), SuggestionStatus.ACCEPTED);
 
         // Judge the user's original resume (the rewrite is passed only to anchor additions in),
         // NOT a document with additions applied. If the added text were present, the model
@@ -121,13 +183,22 @@ public class TailoringRunStore {
         // addition would come back detached from it, and removing the addition would leave the
         // requirement still showing as covered. Passing the additions separately lets the model
         // point at one instead, which keeps accepting and removing reversible.
+        //
+        // The rewrite passed is the one with the chosen summary length applied, so an anchor
+        // inside the summary is text the user can actually see.
         return new GapContext(
-                runId, run.getJobDescriptionId(), run.getLlmProfileId(), run.getFormat(),
+                run.getId(), run.getJobDescriptionId(), run.getLlmProfileId(), run.getFormat(),
                 run.getOriginalBody(),
-                run.getTailoredBody() == null ? "" : run.getTailoredBody(),
+                run.getTailoredBody() == null ? "" : EffectiveBody.withSummary(run),
                 accepted.stream()
                         .map(s -> new Prompts.ExistingAddition(s.getId().toString(), s.getContent()))
                         .toList());
+    }
+
+    private static SummaryContext summaryContext(TailoringRun run) {
+        return new SummaryContext(
+                run.getId(), run.getJobDescriptionId(), run.getLlmProfileId(), run.getFormat(),
+                run.getOriginalBody(), run.getTailoredBody());
     }
 
     /**

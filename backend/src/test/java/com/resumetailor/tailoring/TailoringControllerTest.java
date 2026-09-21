@@ -10,6 +10,8 @@ import com.resumetailor.tailoring.TailoringDtos.KeywordResponse;
 import com.resumetailor.tailoring.TailoringDtos.RunDetail;
 import com.resumetailor.tailoring.TailoringDtos.SectionDiff;
 import com.resumetailor.tailoring.TailoringDtos.SuggestionResponse;
+import com.resumetailor.tailoring.TailoringDtos.SummaryResponse;
+import com.resumetailor.tailoring.TailoringDtos.SummaryVariantResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -33,6 +35,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -77,6 +80,9 @@ class TailoringControllerTest {
                         new KeywordResponse("Terraform", KeywordImportance.REQUIRED, false, null, addition,
                                 "Infrastructure as code: define cloud resources in files.")),
                 List.of(),
+                new SummaryResponse(SummaryStatus.COMPLETED, null, 5, List.of(
+                        new SummaryVariantResponse(4, "Short."),
+                        new SummaryVariantResponse(5, "Medium."))),
                 Instant.now(), Instant.now(), Instant.now());
     }
 
@@ -167,6 +173,47 @@ class TailoringControllerTest {
         mockMvc.perform(post("/api/runs/{id}/gaps", RUN_ID))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("This run has not produced a tailored resume yet"));
+    }
+
+    @Test
+    void returnsTheSummaryLengthsAndWhichOneIsChosen() throws Exception {
+        given(tailoringService.getRun(RUN_ID)).willReturn(detail(RunStatus.COMPLETED));
+
+        mockMvc.perform(get("/api/runs/{id}", RUN_ID))
+                .andExpect(jsonPath("$.summary.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.summary.selectedLines").value(5))
+                .andExpect(jsonPath("$.summary.variants[0].lines").value(4))
+                .andExpect(jsonPath("$.summary.variants[1].text").value("Medium."));
+    }
+
+    @Test
+    void choosingASummaryLengthReturnsTheRebuiltRun() throws Exception {
+        given(tailoringService.selectSummaryLines(RUN_ID, 4)).willReturn(detail(RunStatus.COMPLETED));
+
+        mockMvc.perform(put("/api/runs/{id}/summary", RUN_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lines\":4}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tailoredSource").exists());
+    }
+
+    @Test
+    void onlyLengthsOnTheSliderCanBeChosen() throws Exception {
+        for (String body : new String[]{"{\"lines\":3}", "{\"lines\":8}", "{}"}) {
+            mockMvc.perform(put("/api/runs/{id}/summary", RUN_ID)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isBadRequest());
+        }
+        then(tailoringService).should(org.mockito.Mockito.never()).selectSummaryLines(any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void generatingSummaryLengthsIsAcceptedAndReportedAsPending() throws Exception {
+        given(tailoringService.requestSummary(RUN_ID)).willReturn(detail(RunStatus.COMPLETED));
+
+        mockMvc.perform(post("/api/runs/{id}/summary", RUN_ID))
+                .andExpect(status().isAccepted());
     }
 
     @Test

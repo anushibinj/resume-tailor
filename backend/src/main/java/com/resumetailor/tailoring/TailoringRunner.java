@@ -22,10 +22,10 @@ import java.util.UUID;
 /**
  * The tailoring pipeline, run off the request thread.
  *
- * <p>Three model calls: read the posting, rewrite the resume, then check the rewrite
- * against the posting's requirements. The check is deliberately the last step and has its
- * own status -- the rewrite is the expensive part, so it is saved and shown as soon as it
- * lands, and a failed check can be retried without redoing it.
+ * <p>Four model calls: read the posting, rewrite the resume, write the summary at several
+ * lengths, then check the resume against the posting's requirements. The last two each have
+ * their own status -- the rewrite is the expensive part, so it is saved and shown as soon as
+ * it lands, and a failed summary or check can be retried without redoing it.
  */
 @Slf4j
 @Component
@@ -37,6 +37,7 @@ public class TailoringRunner {
     private final LlmProfileService llmProfileService;
     private final JdAnalyzer jdAnalyzer;
     private final GapAnalyzer gapAnalyzer;
+    private final SummaryWriter summaryWriter;
     private final SkillDefinitionService skillDefinitions;
     private final OpenAiCompatibleClient client;
     private final LlmResponseParser parser;
@@ -51,7 +52,7 @@ public class TailoringRunner {
             return;
         }
 
-        GapContext gapContext;
+        SummaryContext summaryContext;
         JdAnalysisResult analysis;
         LlmSettings settings;
         try {
@@ -66,7 +67,7 @@ public class TailoringRunner {
                     true);
             TailorOutput output = parser.parseTailorOutput(completion.content());
 
-            gapContext = store.saveRewrite(
+            summaryContext = store.saveRewrite(
                     runId, output, completion.model(),
                     completion.promptTokens(), completion.completionTokens());
             log.info("Run {} rewrite saved", runId);
@@ -76,7 +77,30 @@ public class TailoringRunner {
             return;
         }
 
-        checkGaps(gapContext, analysis, settings);
+        // Before the gap check, so its anchors come from the summary the user will be looking at.
+        writeSummary(summaryContext, analysis, settings);
+        checkGaps(store.gapContext(runId), analysis, settings);
+    }
+
+    /** Re-runs only the summary options, from the model's pristine rewrite. */
+    @Async(AsyncConfig.TAILORING_EXECUTOR)
+    public void regenerateSummary(UUID runId) {
+        SummaryContext context;
+        try {
+            context = store.beginSummary(runId);
+        } catch (RuntimeException ex) {
+            log.error("Could not start summary options for run {}", runId, ex);
+            return;
+        }
+
+        try {
+            LlmSettings settings = llmProfileService.resolveSettings(context.llmProfileId());
+            JobDescription jd = jobDescriptionService.require(context.jobDescriptionId());
+            writeSummary(context, jdAnalyzer.analyze(jd, settings), settings);
+        } catch (Exception ex) {
+            log.warn("Summary options for run {} failed: {}", runId, ex.getMessage());
+            store.markSummaryFailed(runId, message(ex));
+        }
     }
 
     /** Re-runs only the gap analysis, against the document as it currently stands. */
@@ -97,6 +121,20 @@ public class TailoringRunner {
         } catch (Exception ex) {
             log.warn("Gap analysis for run {} failed: {}", runId, ex.getMessage());
             store.markGapsFailed(runId, message(ex));
+        }
+    }
+
+    /**
+     * Contained like the gap check: the rewrite is already saved and usable, so failing to
+     * write the options records an error the user can retry from, and the pipeline goes on.
+     */
+    private void writeSummary(SummaryContext context, JdAnalysisResult analysis, LlmSettings settings) {
+        try {
+            store.saveSummary(context.runId(), summaryWriter.write(context, analysis, settings));
+            log.info("Run {} summary options written", context.runId());
+        } catch (Exception ex) {
+            log.warn("Summary options for run {} failed: {}", context.runId(), ex.getMessage());
+            store.markSummaryFailed(context.runId(), message(ex));
         }
     }
 

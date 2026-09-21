@@ -2,6 +2,8 @@ package com.resumetailor.tailoring;
 
 import com.resumetailor.keyword.KeywordImportance;
 import com.resumetailor.resume.ResumeFormat;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -64,6 +66,7 @@ public final class TailoringDtos {
             List<KeywordResponse> keywords,
             /** Additions not tied to a current requirement, e.g. ones kept from an earlier check. */
             List<SuggestionResponse> otherSuggestions,
+            SummaryResponse summary,
             Instant createdAt,
             Instant startedAt,
             Instant finishedAt) {
@@ -107,6 +110,29 @@ public final class TailoringDtos {
             String content,
             String rationale,
             SuggestionStatus status) {
+    }
+
+    /**
+     * The summary at several lengths.
+     *
+     * @param selectedLines the length in the document now; null when the summary is exactly as
+     *                      the model wrote it (no options yet, or none could be made)
+     * @param variants      shortest first; empty until options exist, or when the resume has no
+     *                      summary to resize
+     */
+    public record SummaryResponse(
+            SummaryStatus status,
+            String error,
+            Integer selectedLines,
+            List<SummaryVariantResponse> variants) {
+    }
+
+    /** @param lines the length asked for; an estimate, since only compiling shows real lines */
+    public record SummaryVariantResponse(int lines, String text) {
+    }
+
+    public record SelectSummaryRequest(
+            @NotNull @Min(SummaryVariants.MIN_LINES) @Max(SummaryVariants.MAX_LINES) Integer lines) {
     }
 
     public record UpdateSuggestionRequest(@NotNull SuggestionStatus status) {

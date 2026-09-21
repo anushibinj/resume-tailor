@@ -22,6 +22,8 @@ export type SuggestionKind = "BULLET" | "SKILL" | "SUMMARY";
 export type SuggestionStatus = "PROPOSED" | "ACCEPTED" | "REJECTED";
 /** Gap analysis runs after the rewrite, so it has its own status. */
 export type GapsStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "OUTDATED";
+/** The summary length options are written after the rewrite, so they have a status of their own. */
+export type SummaryStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "NONE";
 
 export interface ResumeSummary {
   id: string;
@@ -128,6 +130,22 @@ export function isCovered(keyword: KeywordResult): boolean {
   return keyword.covered || keyword.addition?.status === "ACCEPTED";
 }
 
+export interface SummaryVariant {
+  /** The length asked for. An estimate: only compiling the PDF shows the real line count. */
+  lines: number;
+  text: string;
+}
+
+/** The resume's summary written at several lengths, one of which is in the document. */
+export interface SummaryOptions {
+  status: SummaryStatus;
+  error: string | null;
+  /** The length in the document now; null when the summary is exactly as the model wrote it. */
+  selectedLines: number | null;
+  /** Shortest first. Empty until written, or when the resume has no summary to resize. */
+  variants: SummaryVariant[];
+}
+
 export interface RunSummary {
   id: string;
   status: RunStatus;
@@ -163,6 +181,7 @@ export interface RunDetail {
   keywords: KeywordResult[];
   /** Additions not tied to a current requirement, e.g. kept from an earlier check. */
   otherSuggestions: Suggestion[];
+  summary: SummaryOptions;
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;

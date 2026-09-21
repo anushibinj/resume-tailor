@@ -8,8 +8,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * The prompt contract for the three LLM calls: extract the posting's requirements,
- * rewrite the resume, then judge which requirements the rewrite covers.
+ * The prompt contract for the LLM calls: extract the posting's requirements, rewrite the
+ * resume, write the summary at several lengths, then judge which requirements the resume
+ * covers.
  *
  * <p>The rewrite may reorder, reword, re-emphasise and trim, but never invent. Adding
  * something the resume does not show is a separate, explicit act by the user: the gap
@@ -163,6 +164,101 @@ public final class Prompts {
                 bullets(analysis.responsibilities()),
                 keywords.isBlank() ? "(none extracted)" : keywords,
                 resumeBody);
+    }
+
+    /**
+     * Writes the rewrite's summary again at each length the slider offers.
+     *
+     * <p>Shorter is not a licence to invent and longer is not either: the facts come from the
+     * ORIGINAL resume only, which is why the original is sent alongside the rewrite. The
+     * summary is quoted back verbatim so Java can find it and swap a variant in; if it cannot
+     * be found the options are rejected rather than applied somewhere guessed.
+     *
+     * @param charsPerLine visible characters in one rendered line, which is what turns "N
+     *                     lines" into a length the model can aim for
+     */
+    public static String summaryVariantsSystem(ResumeFormat format, int charsPerLine) {
+        String dialect = format == ResumeFormat.LATEX ? "LaTeX" : "Markdown";
+        String dialectRule = format == ResumeFormat.LATEX
+                ? """
+                - Use ONLY macros that already appear in the summary or elsewhere in the resume.
+                  Keep every brace balanced and copy escapes such as \\& and \\% exactly.
+                - Never emit a line starting with %, and never a section heading or environment.
+                """
+                : """
+                - Use the same emphasis style the resume already uses. No headings and no list
+                  markers unless the summary itself is a list.
+                """;
+        StringBuilder budgets = new StringBuilder();
+        for (int lines = SummaryVariants.MIN_LINES; lines <= SummaryVariants.MAX_LINES; lines++) {
+            budgets.append("  - ").append(lines).append(" lines: ")
+                    .append(Math.round((lines - 0.5) * charsPerLine)).append(" to ")
+                    .append(lines * charsPerLine).append(" characters\n");
+        }
+
+        return """
+                You write one professional summary at several different lengths.
+
+                You are given the candidate's ORIGINAL resume, which is the only source of facts,
+                and a TAILORED version rewritten for one job.
+
+                STEP 1 -- FIND THE SUMMARY in the TAILORED resume. It is the paragraph of prose
+                that sums the candidate up, usually near the top and headed Summary, Profile, About
+                or Objective, though it may have no heading. It is NOT the headline, tagline or
+                title line, NOT a skills list and NOT an experience bullet. Copy it into "original"
+                exactly as it appears in the TAILORED resume: same %s markup, same characters, same
+                line breaks, without the section heading. If the resume has no such paragraph, set
+                "original" to null and "variants" to [].
+
+                STEP 2 -- WRITE THE SUMMARY at each of these lengths. A line holds about %d visible
+                characters; markup that does not print, such as a macro name or a brace, does not
+                count. Stay inside each range:
+                %s
+                Rules. Breaking any of these makes the output unusable:
+                1. NEVER invent facts. Use only what the ORIGINAL resume shows: no new employer,
+                   job title, date, degree, certification, tool, technology or metric, and no
+                   inflated number. A longer variant adds detail the resume already has, never
+                   detail it lacks.
+                2. The candidate stays who they are. Keep their OWN title and the stack they list.
+                   The role the job is hiring for is not their title. A skill the resume does not
+                   mention does not appear, however much the job asks for it.
+                3. Every variant is a complete, natural paragraph in its own right, not the longer
+                   one cut off. The shorter it is, the more it keeps only what matters most for
+                   this job. Keep the candidate's voice and person; do not switch to "I" or "he".
+                4. Preserve the %s markup dialect exactly.
+                %s
+                Return ONLY a JSON object, no prose and no code fences, shaped exactly like this:
+                {
+                  "original": "the summary exactly as it appears in the TAILORED resume, or null",
+                  "variants": [
+                    {"lines": 4, "text": "..."},
+                    {"lines": 5, "text": "..."},
+                    {"lines": 6, "text": "..."},
+                    {"lines": 7, "text": "..."}
+                  ]
+                }
+                Include one variant for every length listed, and nothing else.
+                """.formatted(dialect, charsPerLine, budgets, dialect, dialectRule);
+    }
+
+    public static String summaryVariantsUser(JdAnalysisResult analysis, String originalBody, String tailoredBody) {
+        return """
+                THE JOB BEING APPLIED FOR (this is NOT the candidate's own title): %s at %s
+
+                WHAT THIS JOB REQUIRES:
+                %s
+
+                ORIGINAL RESUME (the only source of facts):
+                %s
+
+                TAILORED RESUME (find the summary here and copy it exactly):
+                %s
+                """.formatted(
+                orDash(analysis.role()),
+                orDash(analysis.company()),
+                bullets(analysis.mustHaves()),
+                originalBody,
+                tailoredBody);
     }
 
     /**

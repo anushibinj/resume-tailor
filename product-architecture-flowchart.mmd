@@ -8,7 +8,7 @@ flowchart TB
         settings["/settings<br/>model connections"]
         resumes["/resumes<br/>base resume library"]
         tailor["/tailor<br/>paste a posting"]
-        runview["run detail<br/>diff · requirement coverage · additions"]
+        runview["run detail<br/>diff · requirement coverage · additions<br/>summary length slider (4-7 lines, instant switch)"]
         ask["/ask<br/>one question per resume · answer history (deletable)<br/>next action is always 'ask another in a new chat'"]
     end
 
@@ -28,16 +28,18 @@ flowchart TB
         subgraph pipeline["TailoringRunner (async)"]
             analyse["1 · JdAnalyzer<br/>extract keywords + requirements<br/>cached per job description"]
             rewrite["2 · tailoring call<br/>reorder · reword · trim<br/>never invent · keeps your title"]
-            gaps["3 · GapAnalyzer<br/>which requirements your ORIGINAL resume covers<br/>+ the exact edit to add each gap<br/>+ a description of any skill not yet in the glossary"]
+            summary["3 · SummaryWriter<br/>the rewrite's summary again at 4-7 lines<br/>quoted back verbatim · facts from the ORIGINAL only<br/>own status · failure keeps the rewrite"]
+            gaps["4 · GapAnalyzer<br/>which requirements your ORIGINAL resume covers<br/>+ the exact edit to add each gap<br/>+ a description of any skill not yet in the glossary"]
         end
 
         glossary["SkillDefinitionService<br/>shared skill glossary — NOT owner-scoped<br/>looked up before call 3, new terms saved after"]
 
+        pick["EffectiveBody<br/>pristine rewrite + chosen summary length<br/>(PUT /api/runs/{id}/summary -- swapped in BEFORE additions)"]
         rebuild["reassemble<br/>original preamble + tailored body"]
         splice["AdditionApplier<br/>applies only ACCEPTED additions<br/>anchored · insert-only"]
     end
 
-    db[("Postgres<br/>users · resumes · job_descriptions<br/>tailoring_runs · run_keywords<br/>run_suggestions · llm_profiles<br/>resume_questions (question/answer history, flat -- not a conversation)<br/>skill_definitions (shared by all users)")]
+    db[("Postgres<br/>users · resumes · job_descriptions<br/>tailoring_runs (+ summary options as JSON) · run_keywords<br/>run_suggestions · llm_profiles<br/>resume_questions (question/answer history, flat -- not a conversation)<br/>skill_definitions (shared by all users)")]
     llm["Your LLM<br/>OpenAI-compatible<br/>/chat/completions"]
     tex["docker run resume-tailor-tex<br/>--network none · -no-shell-escape<br/>memory + time capped"]
 
@@ -65,17 +67,18 @@ flowchart TB
     ctrl -- "POST /api/runs → 202 PENDING" --> pipeline
     analyse -- "call 1" --> llm
     rewrite -- "call 2 (body only,<br/>never the preamble)" --> llm
-    gaps -- "call 3" --> llm
-    analyse --> rewrite --> gaps --> db
+    gaps -- "call 4" --> llm
+    summary -- "call 3" --> llm
+    analyse --> rewrite --> summary --> gaps --> db
     glossary -- "known descriptions → prompt only asks for the rest" --> gaps
     gaps -- "new descriptions" --> glossary
     glossary --> db
 
     runview -- "poll every 2s until terminal" --> ctrl
-    db --> rebuild --> splice --> runview
+    db --> pick --> rebuild --> splice --> runview
     splice -- "export PDF" --> tex --> runview
 
     classDef guard fill:#e4ecf5,stroke:#2f5d8c,color:#1d2b2f;
     classDef external fill:#f5efdf,stroke:#8a6d2b,color:#1d2b2f;
-    class owner,jwtfilter,gaps,splice,qa guard;
+    class owner,jwtfilter,gaps,summary,splice,qa guard;
     class llm,tex,google external;

@@ -91,6 +91,26 @@ public class TailoringRun extends AuditedEntity {
     @Column(name = "gaps_error", columnDefinition = "text")
     private String gapsError;
 
+    /** Summary length options are written after the rewrite and can be regenerated alone. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "summary_status", nullable = false, length = 16)
+    private SummaryStatus summaryStatus;
+
+    @Column(name = "summary_error", columnDefinition = "text")
+    private String summaryError;
+
+    /** Exact text of the summary inside {@link #tailoredBody}, which a chosen variant replaces. */
+    @Column(name = "summary_original", columnDefinition = "text")
+    private String summaryOriginal;
+
+    /** JSON array of {@link SummaryOptions.Variant}; read through {@link SummaryVariants}. */
+    @Column(name = "summary_variants", columnDefinition = "text")
+    private String summaryVariants;
+
+    /** The length currently chosen; null means the summary exactly as the model wrote it. */
+    @Column(name = "summary_lines")
+    private Integer summaryLines;
+
     @Column(name = "started_at")
     private Instant startedAt;
 
