@@ -9,6 +9,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { CoverageMeter } from "@/components/coverage-meter";
+import { ApplicationLinkControl, AppliedToggle } from "@/components/run-application";
 import { Button, Panel, Skeleton, Spinner, Tag } from "@/components/ui";
 import { api, describeError } from "@/lib/api";
 import type { RunDetail, Suggestion } from "@/lib/types";
@@ -102,6 +103,26 @@ export default function RunPage() {
     onError: (error: unknown) => toast.error(describeError(error)),
   });
 
+  // Recorded by the user, not inferred -- see run-application.tsx. Patches just the two
+  // fields that changed rather than refetching the whole run.
+  const applied = useMutation({
+    mutationFn: (nextApplied: boolean) => api.runs.setApplied(id, nextApplied),
+    onSuccess: (result) =>
+      queryClient.setQueryData<RunDetail>(["run", id], (old) =>
+        old ? { ...old, applied: result.applied, appliedAt: result.appliedAt } : old,
+      ),
+    onError: (error: unknown) => toast.error(describeError(error)),
+  });
+
+  const applicationLink = useMutation({
+    mutationFn: (link: string) => api.runs.setApplicationLink(id, link),
+    onSuccess: (result) =>
+      queryClient.setQueryData<RunDetail>(["run", id], (old) =>
+        old ? { ...old, applicationLink: result.applicationLink } : old,
+      ),
+    onError: (error: unknown) => toast.error(describeError(error)),
+  });
+
   // Applied one at a time (not in parallel) because each accept recomputes the whole
   // tailored document server-side; overlapping requests could race on that rebuild.
   const addAllMissing = useMutation({
@@ -188,6 +209,18 @@ export default function RunPage() {
               {data.format === "LATEX" ? "LaTeX" : "Markdown"} · started {formatDate(data.createdAt)}
               {data.modelUsed ? ` · ${data.modelUsed}` : ""}
             </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <AppliedToggle
+                applied={data.applied}
+                onToggle={() => applied.mutate(!data.applied)}
+                pending={applied.isPending}
+              />
+              <ApplicationLinkControl
+                link={data.applicationLink}
+                onSave={(link) => applicationLink.mutate(link)}
+                saving={applicationLink.isPending}
+              />
+            </div>
           </div>
 
           {data.status === "COMPLETED" ? (
