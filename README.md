@@ -15,6 +15,10 @@ model's — including a keyword you want purely to get past an ATS.
   back untouched.
 - **Review before you send.** Section-by-section side-by-side diff, a requirements panel
   showing what the posting wants and what you actually cover, and run history.
+- **Queue runs, apply one at a time.** Tailor against several postings before you actually
+  apply to any of them. History has a persistent All / Not applied / Applied filter, and
+  each run carries a "Mark applied" toggle and an application link you can reopen later --
+  from History or from the run itself.
 - **PDF without installing TeX.** Compilation happens inside a throwaway Docker
   container.
 - **Ask about a resume.** One question in, one answer out, from that resume alone. Every
@@ -113,6 +117,11 @@ Open <http://localhost:3000>.
    experience and technical strengths"). The answer comes back in one response; asking
    again starts a new question rather than continuing a conversation. Every question you've
    asked about that resume is kept below it, and each one can be deleted.
+8. **Applied** — once you've actually sent a tailored resume, mark it **Applied** from
+   History or from the run itself, and save the posting's URL there so you can reopen it
+   later. Tailor against several postings first if you like; History's All / Not applied /
+   Applied filter (remembered across visits) lets you work through a queue of runs one at a
+   time without losing track of which you've already sent.
 
 ## How it works
 
@@ -125,6 +134,16 @@ Next.js (:3000) ──REST──▶ Spring Boot (:8080) ──▶ Postgres (:543
 
 A run is asynchronous: `POST /api/runs` returns immediately with a `PENDING` run and the
 UI polls until it finishes, so a slow model never holds an HTTP connection open.
+
+### The LLM call queue
+
+Several runs can be orchestrated at once (queue up a batch of postings and let them work),
+but every outbound call to your LLM -- across every run, plus resume Q&A and the Settings
+"Test" button -- is funnelled through one queue and worked `LLM_QUEUE_CONCURRENCY` calls at
+a time. That defaults to **1**: queuing a dozen runs makes one call at a time against your
+endpoint, not a dozen at once. Raise it if your provider can take real concurrency.
+`LLM_QUEUE_CAPACITY` bounds how many calls may be waiting behind those; once it's full, a
+new call fails fast rather than growing the backlog without limit.
 
 Four LLM calls per run:
 
@@ -234,9 +253,11 @@ with no network, no shell escape, a memory cap and a hard timeout.
 | `GET/PUT/DELETE` | `/api/resumes/{id}` | Read, update, delete |
 | `POST` | `/api/resumes/{id}/default` | Make it the default |
 | `POST` | `/api/runs` | Start a tailoring run (202 + run id) |
-| `GET` | `/api/runs` | History, paginated |
+| `GET` | `/api/runs` | History, paginated; `?applied=true\|false` filters it |
 | `GET` | `/api/runs/{id}` | Poll status, diff, requirement coverage, additions |
 | `DELETE` | `/api/runs/{id}` | Delete a run and its compiled PDF |
+| `PATCH` | `/api/runs/{id}/applied` | Mark a run applied / not applied (`{"applied": true}`) |
+| `PUT` | `/api/runs/{id}/application-link` | Set (or clear) the posting/tracker URL for a run |
 | `PATCH` | `/api/runs/{id}/suggestions/{sid}` | Add / skip / remove an addition |
 | `POST` | `/api/runs/{id}/gaps` | Re-check the requirements with your model |
 | `PUT` | `/api/runs/{id}/summary` | Choose a summary length (`{"lines": 4-7}`); instant, no model call |
@@ -286,6 +307,8 @@ comments) and `frontend/.env.local`.
 | `JWT_EXPIRATION_MINUTES` | `1440` | How long a session token is valid |
 | `DATABASE_URL` | `jdbc:postgresql://localhost:5432/resume_tailor` | |
 | `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` | OpenAI defaults | Seeds a profile for each new user's first sign-in |
+| `LLM_QUEUE_CONCURRENCY` | `1` | How many LLM calls run at once, across every queued run |
+| `LLM_QUEUE_CAPACITY` | `100` | How many more calls may wait behind those before a new one is refused |
 | `SUMMARY_CHARS_PER_LINE` | `90` | Characters in one rendered summary line; turns the slider's "N lines" into a budget for the model |
 | `PDF_ENABLED` | `true` | `false` hides PDF export; source download still works |
 | `TEX_IMAGE` | `resume-tailor-tex` | Image built from `docker/tex` |

@@ -8,7 +8,8 @@ flowchart TB
         settings["/settings<br/>model connections"]
         resumes["/resumes<br/>base resume library"]
         tailor["/tailor<br/>paste a posting"]
-        runview["run detail<br/>diff · requirement coverage · additions<br/>summary length slider (4-7 lines, instant switch)"]
+        history["/runs (History)<br/>All / Not applied / Applied filter (persisted in localStorage)<br/>mark applied · open/edit the application link"]
+        runview["run detail<br/>diff · requirement coverage · additions<br/>summary length slider (4-7 lines, instant switch)<br/>mark applied · open/edit the application link"]
         ask["/ask<br/>one question per resume · answer history (deletable)<br/>next action is always 'ask another in a new chat'"]
     end
 
@@ -37,9 +38,11 @@ flowchart TB
         pick["EffectiveBody<br/>pristine rewrite + chosen summary length<br/>(PUT /api/runs/{id}/summary -- swapped in BEFORE additions)"]
         rebuild["reassemble<br/>original preamble + tailored body"]
         splice["AdditionApplier<br/>applies only ACCEPTED additions<br/>anchored · insert-only"]
+
+        llmqueue{{"OpenAiCompatibleClient.chat()<br/>llmExecutor -- LLM_QUEUE_CONCURRENCY at a time (default 1)<br/>every call (pipeline, gaps, summary, Q&A, Test) funnels through here<br/>LLM_QUEUE_CAPACITY bounds how many more may wait"}}
     end
 
-    db[("Postgres<br/>users · resumes · job_descriptions<br/>tailoring_runs (+ summary options as JSON) · run_keywords<br/>run_suggestions · llm_profiles<br/>resume_questions (question/answer history, flat -- not a conversation)<br/>skill_definitions (shared by all users)")]
+    db[("Postgres<br/>users · resumes · job_descriptions<br/>tailoring_runs (+ summary options as JSON · applied · applied_at · application_link) · run_keywords<br/>run_suggestions · llm_profiles<br/>resume_questions (question/answer history, flat -- not a conversation)<br/>skill_definitions (shared by all users)")]
     llm["Your LLM<br/>OpenAI-compatible<br/>/chat/completions"]
     tex["docker run resume-tailor-tex<br/>--network none · -no-shell-escape<br/>memory + time capped"]
 
@@ -51,6 +54,7 @@ flowchart TB
     settings -- "Authorization: Bearer <app JWT>" --> jwtfilter
     resumes --> jwtfilter
     tailor --> jwtfilter
+    history --> jwtfilter
     ask --> jwtfilter
     jwtfilter --> ctrl
     jwtfilter --> qa
@@ -60,15 +64,21 @@ flowchart TB
 
     ctrl --> detect --> split --> db
 
-    qa -- "one synchronous call, resume body only" --> llm
+    history -- "GET /api/runs?applied=…<br/>PATCH .../applied · PUT .../application-link" --> ctrl
+    ctrl --> db
+    db --> history
+    runview -- "PATCH .../applied · PUT .../application-link" --> ctrl
+
+    qa -- "one synchronous call, resume body only" --> llmqueue
     qa --> db
     db -- "answer, or the error if the call failed" --> ask
 
     ctrl -- "POST /api/runs → 202 PENDING" --> pipeline
-    analyse -- "call 1" --> llm
-    rewrite -- "call 2 (body only,<br/>never the preamble)" --> llm
-    gaps -- "call 4" --> llm
-    summary -- "call 3" --> llm
+    analyse -- "call 1" --> llmqueue
+    rewrite -- "call 2 (body only,<br/>never the preamble)" --> llmqueue
+    gaps -- "call 4" --> llmqueue
+    summary -- "call 3" --> llmqueue
+    llmqueue --> llm
     analyse --> rewrite --> summary --> gaps --> db
     glossary -- "known descriptions → prompt only asks for the rest" --> gaps
     gaps -- "new descriptions" --> glossary
@@ -80,5 +90,5 @@ flowchart TB
 
     classDef guard fill:#e4ecf5,stroke:#2f5d8c,color:#1d2b2f;
     classDef external fill:#f5efdf,stroke:#8a6d2b,color:#1d2b2f;
-    class owner,jwtfilter,gaps,summary,splice,qa guard;
+    class owner,jwtfilter,gaps,summary,splice,qa,llmqueue guard;
     class llm,tex,google external;

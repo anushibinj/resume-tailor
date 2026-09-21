@@ -71,4 +71,7 @@ decisions stays readable.
       current prompt doesn't ask for one. Either ask for it or drop the column.
 - [ ] `SectionSegmenter` only knows the common LaTeX sectioning macros. Add any your own
       template uses if sections come out lumped together.
-- [ ] Run history has no search or filter — fine at low volume, worth adding past ~50 runs.
+- [x] Run history had no search or filter. Added an All / Not applied / Applied quick
+      filter (persisted in localStorage) plus a per-run "Mark applied" toggle and
+      application link, so a batch of queued runs can be worked through one at a time.
+      Free-text search is still missing — worth adding past ~50 runs.
