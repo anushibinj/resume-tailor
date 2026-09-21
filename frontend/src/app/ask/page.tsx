@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { RotateCcw, Send } from "lucide-react";
+import { RotateCcw, Send, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -46,6 +46,24 @@ export default function AskPage() {
     },
     onError: (error: unknown) => toast.error(describeError(error)),
   });
+
+  const remove = useMutation({
+    mutationFn: (item: ResumeQuestion) => api.resumes.questions.remove(item.resumeId, item.id),
+    onSuccess: (_data, item) => {
+      toast.success("Question deleted");
+      // If the answer on screen is the one just deleted, drop it too rather than leave a
+      // question on screen that the history no longer has.
+      if (asked?.id === item.id) startNewChat();
+      queryClient.invalidateQueries({ queryKey: ["resume-questions", item.resumeId] });
+    },
+    onError: (error: unknown) => toast.error(describeError(error)),
+  });
+
+  const confirmDelete = (item: ResumeQuestion) => {
+    if (window.confirm("Delete this question and its answer? This can't be undone.")) {
+      remove.mutate(item);
+    }
+  };
 
   const startNewChat = () => {
     setAsked(null);
@@ -171,6 +189,15 @@ export default function AskPage() {
                     <div className="flex shrink-0 items-center gap-2">
                       {item.status === "FAILED" ? <Tag tone="strike">Failed</Tag> : null}
                       <span className="text-xs text-ink-faint">{formatRelative(item.createdAt)}</span>
+                      <Button
+                        variant="danger"
+                        onClick={() => confirmDelete(item)}
+                        disabled={remove.isPending}
+                        aria-label="Delete question"
+                        className="px-2 py-1.5"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
                     </div>
                   </div>
                   <p

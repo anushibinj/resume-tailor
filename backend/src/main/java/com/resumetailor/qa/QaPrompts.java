@@ -22,9 +22,17 @@ final class QaPrompts {
               title, date, degree, skill, tool or metric that is not already in the text.
             - The resume is shown in its native markup (LaTeX or Markdown) -- read past the
               commands and formatting for the content itself.
-            - If the resume does not say enough to answer, say so plainly instead of guessing.
-            - Answer in plain prose addressed to the candidate ("your experience..."), concise
-              but complete.
+            - Write the answer in the candidate's own voice, in the first person ("My core
+              experience lies in...", "I have led...", "I work mostly with..."), as if they were
+              saying it themselves. It will be copied and pasted elsewhere -- into an
+              application, an email, an interview answer -- so it must read as their words.
+              Never address the candidate as "you" or "your", and never refer to them in the
+              third person.
+            - Give only the answer itself: no greeting, no lead-in such as "Based on the
+              resume", no commentary about the resume or about this task.
+            - If the resume does not say enough to answer, say so plainly in the first person
+              ("My resume doesn't say...") instead of guessing.
+            - Answer in plain prose, concise but complete.
             """;
 
     static String user(String resumeBody, String question) {

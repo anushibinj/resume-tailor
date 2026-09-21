@@ -24,6 +24,8 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -96,5 +98,22 @@ class ResumeQaControllerTest {
         mockMvc.perform(get("/api/resumes/{resumeId}/questions", RESUME_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].question").value("What are my core strengths?"));
+    }
+
+    @Test
+    void deletesAQuestionAndReturns204() throws Exception {
+        mockMvc.perform(delete("/api/resumes/{resumeId}/questions/{id}", RESUME_ID, QUESTION_ID))
+                .andExpect(status().isNoContent());
+
+        verify(resumeQaService).delete(RESUME_ID, QUESTION_ID);
+    }
+
+    @Test
+    void mapsDeletingAMissingQuestionTo404() throws Exception {
+        org.mockito.BDDMockito.willThrow(NotFoundException.of("Question", QUESTION_ID))
+                .given(resumeQaService).delete(RESUME_ID, QUESTION_ID);
+
+        mockMvc.perform(delete("/api/resumes/{resumeId}/questions/{id}", RESUME_ID, QUESTION_ID))
+                .andExpect(status().isNotFound());
     }
 }

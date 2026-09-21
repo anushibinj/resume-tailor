@@ -19,7 +19,9 @@ model's — including a keyword you want purely to get past an ATS.
   container.
 - **Ask about a resume.** One question in, one answer out, from that resume alone. Every
   question stands on its own -- there's no back-and-forth to keep track of -- and past
-  questions are kept per resume so you can look back at what you asked.
+  questions are kept per resume so you can look back at what you asked, and delete any
+  you no longer want. Answers are written in your own first-person voice ("My core
+  experience lies in...") so you can paste them straight into an application or email.
 
 ---
 
@@ -108,7 +110,7 @@ Open <http://localhost:3000>.
 7. **Ask** — pick a resume and ask it a single question ("Briefly tell about my core
    experience and technical strengths"). The answer comes back in one response; asking
    again starts a new question rather than continuing a conversation. Every question you've
-   asked about that resume is kept below it.
+   asked about that resume is kept below it, and each one can be deleted.
 
 ## How it works
 
@@ -185,7 +187,12 @@ second, related question -- it starts over from the resume itself, same as the f
 did. The one-click **Ask another question in a new chat** action makes that explicit rather
 than leaving you to wonder why context didn't carry over. Every question and its answer (or
 the error, if the call failed) is still saved, so the history under each resume is a log you
-can browse, not a chat you can resume.
+can browse (and prune), not a chat you can resume.
+
+The answer itself is written as the candidate speaking -- "My core experience lies in...",
+not "Your core experience lies in..." -- with no greeting or "based on the resume" lead-in,
+because the point of asking is usually to paste the result somewhere else. `QaPromptsTest`
+pins that voice rule.
 
 ### Why PDF builds run in Docker
 
@@ -214,6 +221,7 @@ with no network, no shell escape, a memory cap and a hard timeout.
 | `POST` | `/api/llm-profiles/{id}/test` | Check the endpoint responds |
 | `POST` | `/api/resumes/{id}/questions` | Ask a single-shot question about a resume (answers synchronously) |
 | `GET` | `/api/resumes/{id}/questions` | History of questions asked about a resume, paginated |
+| `DELETE` | `/api/resumes/{id}/questions/{qid}` | Delete one question and its answer from the history |
 
 ## Tests
 

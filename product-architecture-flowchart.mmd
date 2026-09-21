@@ -9,7 +9,7 @@ flowchart TB
         resumes["/resumes<br/>base resume library"]
         tailor["/tailor<br/>paste a posting"]
         runview["run detail<br/>diff · requirement coverage · additions"]
-        ask["/ask<br/>one question per resume · answer history<br/>next action is always 'ask another in a new chat'"]
+        ask["/ask<br/>one question per resume · answer history (deletable)<br/>next action is always 'ask another in a new chat'"]
     end
 
     subgraph api["Spring Boot (:8080)"]
@@ -17,7 +17,7 @@ flowchart TB
         authctrl["AuthController<br/>POST /api/auth/google<br/>verify token → find-or-create user → issue app JWT"]
         jwtfilter{{"JwtAuthenticationFilter<br/>validates the app's session token<br/>populates SecurityContext"}}
         ctrl["Controllers<br/>/api/resumes · /api/runs · /api/llm-profiles"]
-        qa["ResumeQaController/Service<br/>POST /api/resumes/{id}/questions -- one synchronous LLM call<br/>never replays earlier questions or answers as context"]
+        qa["ResumeQaController/Service<br/>POST /api/resumes/{id}/questions -- one synchronous LLM call<br/>DELETE /api/resumes/{id}/questions/{qid} -- owner-scoped<br/>answers in the candidate's first-person voice, paste-ready<br/>never replays earlier questions or answers as context"]
         owner{{"CurrentUserProvider<br/>SecurityContextUserProvider:<br/>every query is owner-scoped to the signed-in user"}}
 
         subgraph ingest["Resume ingest"]

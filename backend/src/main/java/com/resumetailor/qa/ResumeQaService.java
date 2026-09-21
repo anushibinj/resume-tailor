@@ -87,6 +87,18 @@ public class ResumeQaService {
                 .map(ResumeQaService::toResponse);
     }
 
+    /**
+     * Removes one entry from the history log. Nothing else depends on it -- questions are
+     * never replayed as context -- so there is nothing to cascade or recompute.
+     */
+    @Transactional
+    public void delete(UUID resumeId, UUID questionId) {
+        UUID ownerId = currentUser.currentUserId();
+        ResumeQuestion question = repository.findByIdAndOwnerIdAndResumeId(questionId, ownerId, resumeId)
+                .orElseThrow(() -> NotFoundException.of("Question", questionId));
+        repository.delete(question);
+    }
+
     private static ResumeQuestionResponse toResponse(ResumeQuestion question) {
         return new ResumeQuestionResponse(
                 question.getId(),

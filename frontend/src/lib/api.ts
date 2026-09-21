@@ -166,6 +166,8 @@ export const api = {
         }),
       history: (resumeId: string, page = 0, size = 50) =>
         request<Page<ResumeQuestion>>(`/api/resumes/${resumeId}/questions?page=${page}&size=${size}`),
+      remove: (resumeId: string, questionId: string) =>
+        request<void>(`/api/resumes/${resumeId}/questions/${questionId}`, { method: "DELETE" }),
     },
   },
   llmProfiles: {

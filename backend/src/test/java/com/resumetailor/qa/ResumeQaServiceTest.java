@@ -156,4 +156,27 @@ class ResumeQaServiceTest {
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).answer()).isEqualTo("a");
     }
+
+    @Test
+    void deletesAQuestionTheCallerOwnsOnThatResume() {
+        UUID questionId = UUID.randomUUID();
+        ResumeQuestion question = new ResumeQuestion();
+        when(repository.findByIdAndOwnerIdAndResumeId(questionId, OWNER_ID, RESUME_ID))
+                .thenReturn(Optional.of(question));
+
+        service.delete(RESUME_ID, questionId);
+
+        verify(repository).delete(question);
+    }
+
+    @Test
+    void refusesToDeleteAQuestionTheCallerDoesNotOwn() {
+        UUID questionId = UUID.randomUUID();
+        when(repository.findByIdAndOwnerIdAndResumeId(questionId, OWNER_ID, RESUME_ID))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.delete(RESUME_ID, questionId))
+                .isInstanceOf(NotFoundException.class);
+        verify(repository, never()).delete(any());
+    }
 }
