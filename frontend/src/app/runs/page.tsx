@@ -3,12 +3,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { ApplicationLinkControl, AppliedToggle } from "@/components/run-application";
 import { Button, EmptyState, PageHeading, Panel, Spinner, Tag } from "@/components/ui";
 import { api, describeError } from "@/lib/api";
+import { getStoredAppliedFilter, setStoredAppliedFilter, type AppliedFilter } from "@/lib/runs-filter";
 import type { RunStatus, RunSummary } from "@/lib/types";
-import { formatRelative } from "@/lib/utils";
+import { cn, formatRelative } from "@/lib/utils";
+
+const FILTERS: { value: AppliedFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "unapplied", label: "Not applied" },
+  { value: "applied", label: "Applied" },
+];
 
 const STATUS_TONE: Record<RunStatus, "neutral" | "pencil" | "strike"> = {
   PENDING: "neutral",
@@ -26,7 +35,15 @@ const STATUS_LABEL: Record<RunStatus, string> = {
 
 export default function RunsPage() {
   const queryClient = useQueryClient();
-  const runs = useQuery({ queryKey: ["runs"], queryFn: () => api.runs.list(0, 50) });
+  // Starts at "all" (matching what the server renders) and picks up the stored choice once
+  // mounted, so this never disagrees with the HTML React hydrates against.
+  const [filter, setFilter] = useState<AppliedFilter>("all");
+  useEffect(() => setFilter(getStoredAppliedFilter()), []);
+
+  const runs = useQuery({
+    queryKey: ["runs", filter],
+    queryFn: () => api.runs.list(0, 50, filter === "all" ? undefined : filter === "applied"),
+  });
 
   const remove = useMutation({
     mutationFn: api.runs.remove,
@@ -37,11 +54,29 @@ export default function RunsPage() {
     onError: (error: unknown) => toast.error(describeError(error)),
   });
 
+  const applied = useMutation({
+    mutationFn: ({ id, applied: nextApplied }: { id: string; applied: boolean }) =>
+      api.runs.setApplied(id, nextApplied),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["runs"] }),
+    onError: (error: unknown) => toast.error(describeError(error)),
+  });
+
+  const applicationLink = useMutation({
+    mutationFn: ({ id, link }: { id: string; link: string }) => api.runs.setApplicationLink(id, link),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["runs"] }),
+    onError: (error: unknown) => toast.error(describeError(error)),
+  });
+
   const confirmDelete = (run: RunSummary) => {
     const label = run.role ? `the run for ${run.role}` : "this run";
     if (window.confirm(`Delete ${label}? This removes its history, diff and any compiled PDF. This can't be undone.`)) {
       remove.mutate(run.id);
     }
+  };
+
+  const selectFilter = (value: AppliedFilter) => {
+    setFilter(value);
+    setStoredAppliedFilter(value);
   };
 
   return (
@@ -56,16 +91,41 @@ export default function RunsPage() {
         }
       />
 
+      <div className="mb-4 flex w-fit items-center gap-1 rounded-sm border border-rule bg-surface p-1">
+        {FILTERS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => selectFilter(option.value)}
+            aria-current={filter === option.value ? "true" : undefined}
+            className={cn(
+              "rounded-sm px-3 py-1.5 text-sm transition-colors",
+              filter === option.value ? "bg-pencil text-on-pencil" : "text-ink-soft hover:text-ink",
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
       {runs.isLoading ? <Spinner /> : null}
 
       {runs.data?.content.length === 0 ? (
         <EmptyState
-          title="No runs yet"
-          body="Once you tailor a resume to a posting it'll show up here, so you can always see what you sent to whom."
+          title={filter === "all" ? "No runs yet" : filter === "applied" ? "No applied runs yet" : "Nothing left to apply to"}
+          body={
+            filter === "all"
+              ? "Once you tailor a resume to a posting it'll show up here, so you can always see what you sent to whom."
+              : filter === "applied"
+                ? "Mark a run applied once you've actually sent it, and it'll show up here."
+                : "Every run is marked applied, or switch back to “All” to see everything."
+          }
           action={
-            <Link href="/tailor">
-              <Button variant="primary">Tailor to a posting</Button>
-            </Link>
+            filter === "all" ? (
+              <Link href="/tailor">
+                <Button variant="primary">Tailor to a posting</Button>
+              </Link>
+            ) : undefined
           }
         />
       ) : null}
@@ -86,6 +146,18 @@ export default function RunsPage() {
                   From {run.resumeName ?? "a deleted resume"} · {formatRelative(run.createdAt)}
                 </p>
               </div>
+
+              <AppliedToggle
+                applied={run.applied}
+                onToggle={() => applied.mutate({ id: run.id, applied: !run.applied })}
+                pending={applied.isPending && applied.variables?.id === run.id}
+              />
+
+              <ApplicationLinkControl
+                link={run.applicationLink}
+                onSave={(link) => applicationLink.mutate({ id: run.id, link })}
+                saving={applicationLink.isPending && applicationLink.variables?.id === run.id}
+              />
 
               {run.matchScore !== null ? (
                 <div className="text-right">
