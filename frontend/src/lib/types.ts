@@ -154,6 +154,11 @@ export interface RunSummary {
   resumeName: string | null;
   format: ResumeFormat;
   matchScore: number | null;
+  /** Recorded by the user, not inferred -- several runs can be queued before any is applied to. */
+  applied: boolean;
+  appliedAt: string | null;
+  /** The posting or application-tracker URL for this run; free text, not validated as a URL. */
+  applicationLink: string | null;
   createdAt: string;
   finishedAt: string | null;
 }
@@ -182,9 +187,22 @@ export interface RunDetail {
   /** Additions not tied to a current requirement, e.g. kept from an earlier check. */
   otherSuggestions: Suggestion[];
   summary: SummaryOptions;
+  /** Recorded by the user, not inferred -- several runs can be queued before any is applied to. */
+  applied: boolean;
+  appliedAt: string | null;
+  /** The posting or application-tracker URL for this run; free text, not validated as a URL. */
+  applicationLink: string | null;
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
+}
+
+/** Returned by the two endpoints that only touch the applied flag or the link. */
+export interface RunApplicationStatus {
+  id: string;
+  applied: boolean;
+  appliedAt: string | null;
+  applicationLink: string | null;
 }
 
 export interface CreateRunRequest {

@@ -9,6 +9,7 @@ import type {
   ResumeDetail,
   ResumeQuestion,
   ResumeSummary,
+  RunApplicationStatus,
   RunDetail,
   RunSummary,
   SaveLlmProfileRequest,
@@ -182,7 +183,11 @@ export const api = {
     remove: (id: string) => request<void>(`/api/llm-profiles/${id}`, { method: "DELETE" }),
   },
   runs: {
-    list: (page = 0, size = 20) => request<Page<RunSummary>>(`/api/runs?page=${page}&size=${size}`),
+    /** `applied` filters the list when given; omitted shows every run. */
+    list: (page = 0, size = 20, applied?: boolean) =>
+      request<Page<RunSummary>>(
+        `/api/runs?page=${page}&size=${size}${applied !== undefined ? `&applied=${applied}` : ""}`,
+      ),
     get: (id: string) => request<RunDetail>(`/api/runs/${id}`),
     create: (body: CreateRunRequest) =>
       request<RunDetail>("/api/runs", { method: "POST", body: JSON.stringify(body) }),
@@ -190,6 +195,18 @@ export const api = {
       request<RunDetail>(`/api/runs/${runId}/suggestions/${suggestionId}`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
+      }),
+    /** Recorded by the user, not inferred -- several runs can be queued before any is applied to. */
+    setApplied: (id: string, applied: boolean) =>
+      request<RunApplicationStatus>(`/api/runs/${id}/applied`, {
+        method: "PATCH",
+        body: JSON.stringify({ applied }),
+      }),
+    /** A blank link clears it; the link is free text, not validated as a URL. */
+    setApplicationLink: (id: string, applicationLink: string) =>
+      request<RunApplicationStatus>(`/api/runs/${id}/application-link`, {
+        method: "PUT",
+        body: JSON.stringify({ applicationLink }),
       }),
     remove: (id: string) => request<void>(`/api/runs/${id}`, { method: "DELETE" }),
     recheckGaps: (id: string) => request<RunDetail>(`/api/runs/${id}/gaps`, { method: "POST" }),
