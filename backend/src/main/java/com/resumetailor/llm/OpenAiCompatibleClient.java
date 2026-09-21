@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.resumetailor.config.LlmProperties;
+import com.resumetailor.config.LlmQueueConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,10 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * Talks to any endpoint exposing OpenAI's {@code POST /chat/completions}.
@@ -40,18 +46,21 @@ public class OpenAiCompatibleClient {
 
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
+    private final Executor llmExecutor;
 
     // Explicit @Autowired: the class has a second constructor for tests, and Spring will
     // not guess between two candidates.
     @Autowired
-    public OpenAiCompatibleClient(ObjectMapper objectMapper, LlmProperties properties) {
-        this(objectMapper, defaultRestClient(properties));
+    public OpenAiCompatibleClient(ObjectMapper objectMapper, LlmProperties properties,
+                                  @Qualifier(LlmQueueConfig.LLM_EXECUTOR) Executor llmExecutor) {
+        this(objectMapper, defaultRestClient(properties), llmExecutor);
     }
 
     /** Test seam: lets a test bind MockRestServiceServer to the client's RestClient. */
-    OpenAiCompatibleClient(ObjectMapper objectMapper, RestClient restClient) {
+    OpenAiCompatibleClient(ObjectMapper objectMapper, RestClient restClient, Executor llmExecutor) {
         this.objectMapper = objectMapper;
         this.restClient = restClient;
+        this.llmExecutor = llmExecutor;
     }
 
     private static RestClient defaultRestClient(LlmProperties properties) {
@@ -63,7 +72,42 @@ public class OpenAiCompatibleClient {
         return RestClient.builder().requestFactory(factory).build();
     }
 
+    /**
+     * Queues the call on {@code llmExecutor} and blocks the caller until it runs, rather
+     * than making the HTTP request on the calling thread directly -- that is what lets a
+     * fixed number of concurrent calls (default 1) be enforced no matter how many tailoring
+     * runs are asking for one at once. The queue itself is bounded ({@link
+     * com.resumetailor.config.LlmQueueProperties#capacity()}); a call made once it is full
+     * fails fast with an actionable message instead of growing the backlog forever.
+     */
     public LlmChatResult chat(LlmSettings settings, String systemPrompt, String userPrompt, boolean jsonMode) {
+        CompletableFuture<LlmChatResult> future;
+        try {
+            future = CompletableFuture.supplyAsync(
+                    () -> chatBlocking(settings, systemPrompt, userPrompt, jsonMode), llmExecutor);
+        } catch (RejectedExecutionException ex) {
+            throw new LlmException("Too many LLM calls are already queued -- wait for earlier ones to finish, "
+                    + "or raise resume-tailor.llm.queue.capacity.", ex);
+        }
+        try {
+            return future.get();
+        } catch (ExecutionException ex) {
+            Throwable cause = ex.getCause();
+            if (cause instanceof LlmException llmException) {
+                throw llmException;
+            }
+            throw new LlmException(cause != null ? messageOf(cause) : messageOf(ex), cause);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new LlmException("Interrupted while waiting for the LLM call queue", ex);
+        }
+    }
+
+    private static String messageOf(Throwable ex) {
+        return ex.getMessage() == null ? ex.toString() : ex.getMessage();
+    }
+
+    private LlmChatResult chatBlocking(LlmSettings settings, String systemPrompt, String userPrompt, boolean jsonMode) {
         ResponseEntity<String> response = post(settings, systemPrompt, userPrompt, jsonMode);
 
         if (jsonMode && response.getStatusCode().isError() && mentionsResponseFormat(response.getBody())) {

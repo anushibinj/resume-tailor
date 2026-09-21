@@ -8,6 +8,13 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,7 +50,9 @@ class OpenAiCompatibleClientTest {
     void setUp() {
         builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new OpenAiCompatibleClient(new ObjectMapper(), builder.build());
+        // Runs the queued call on the calling thread: these tests aren't about the queue,
+        // so nothing here needs real concurrency.
+        client = new OpenAiCompatibleClient(new ObjectMapper(), builder.build(), Runnable::run);
     }
 
     @Test
@@ -142,6 +151,52 @@ class OpenAiCompatibleClientTest {
         assertThatThrownBy(() -> client.chat(settings(), "system", "user", false))
                 .isInstanceOf(LlmException.class)
                 .hasMessageContaining("closed the connection");
+    }
+
+    @Test
+    void serialisesCallsThroughTheQueueAtTheConfiguredConcurrency() throws Exception {
+        // A real single-thread pool: whatever chat() submits to it can only ever run one
+        // task at a time, so if calls ever overlap it's because chat() bypassed the queue.
+        ExecutorService singleThread = Executors.newFixedThreadPool(1);
+        try {
+            OpenAiCompatibleClient queued = new OpenAiCompatibleClient(new ObjectMapper(), builder.build(), singleThread);
+            AtomicInteger inFlight = new AtomicInteger();
+            AtomicInteger maxInFlight = new AtomicInteger();
+            for (int i = 0; i < 3; i++) {
+                server.expect(once(), requestTo("https://api.example.com/v1/chat/completions"))
+                        .andRespond(request -> {
+                            maxInFlight.updateAndGet(max -> Math.max(max, inFlight.incrementAndGet()));
+                            try {
+                                Thread.sleep(50);
+                            } catch (InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                            }
+                            inFlight.decrementAndGet();
+                            return withSuccess(COMPLETION, MediaType.APPLICATION_JSON).createResponse(request);
+                        });
+            }
+
+            List<CompletableFuture<LlmChatResult>> calls = IntStream.range(0, 3)
+                    .mapToObj(i -> CompletableFuture.supplyAsync(() -> queued.chat(settings(), "system", "user", false)))
+                    .toList();
+            calls.forEach(CompletableFuture::join);
+
+            assertThat(maxInFlight.get()).isEqualTo(1);
+        } finally {
+            singleThread.shutdown();
+        }
+    }
+
+    @Test
+    void aFullQueueBecomesAnLlmExceptionRatherThanABareRejectedExecutionException() {
+        java.util.concurrent.Executor rejecting = command -> {
+            throw new RejectedExecutionException("queue is full");
+        };
+        OpenAiCompatibleClient atCapacity = new OpenAiCompatibleClient(new ObjectMapper(), builder.build(), rejecting);
+
+        assertThatThrownBy(() -> atCapacity.chat(settings(), "system", "user", false))
+                .isInstanceOf(LlmException.class)
+                .hasMessageContaining("queue");
     }
 
     @Test
