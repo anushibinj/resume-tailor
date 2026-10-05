@@ -92,6 +92,18 @@ cd frontend && pnpm install && pnpm dev
 
 Open <http://localhost:3000>.
 
+### Running the entire stack with Docker Compose
+
+Alternatively, you can build and run all services (`postgres`, `backend`, and `frontend`) in containers:
+
+```bash
+docker compose up --build
+```
+
+- Frontend: <http://localhost:3000>
+- Backend API: <http://localhost:8080>
+- Postgres: `localhost:5432`
+
 ## Using it
 
 1. **Sign in** with Google. The first person to sign in with a given Google account gets a

@@ -3,6 +3,7 @@ import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 export default function nextConfig(phase: string): NextConfig {
   return {
+    output: "standalone",
     // `next dev` and `next build` get separate output folders. Sharing `.next` means a
     // build run while the dev server is up overwrites the dev manifests, and the dev
     // server then fails with ENOENT on app-paths-manifest.json until `.next` is deleted.
