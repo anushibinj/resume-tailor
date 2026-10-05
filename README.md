@@ -104,6 +104,14 @@ docker compose up --build
 - Backend API: <http://localhost:8080>
 - Postgres: `localhost:5432`
 
+To customize published ports or credentials, copy the root template to `.env` (or pass a custom `--env-file`):
+
+```bash
+cp .env.example .env
+# Edit FRONTEND_PORT, BACKEND_PORT, POSTGRES_PORT as desired
+docker compose up --build
+```
+
 ## Using it
 
 1. **Sign in** with Google. The first person to sign in with a given Google account gets a
