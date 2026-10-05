@@ -11,11 +11,15 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-resume_tailor}
       PGPORT: ${POSTGRES_PORT:-5432}
     ports:
-      - "${POSTGRES_PORT:-5432}:${POSTGRES_PORT:-5432}"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - resume_tailor_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -p ${POSTGRES_PORT:-5432} -U ${POSTGRES_USER:-resume_tailor} -d ${POSTGRES_DB:-resume_tailor}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -p ${POSTGRES_PORT:-5432} -U ${POSTGRES_USER:-resume_tailor} -d ${POSTGRES_DB:-resume_tailor}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -30,7 +34,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "${BACKEND_PORT:-8080}:${BACKEND_PORT:-8080}"
+      - "${BACKEND_PORT:-8080}:8080"
     env_file:
       - path: ./.env
         required: false
@@ -70,7 +74,11 @@ services:
       - resume_tailor_artifacts:/app/artifacts
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${BACKEND_PORT:-8080}/actuator/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -f http://localhost:${BACKEND_PORT:-8080}/actuator/health || exit 1",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -89,7 +97,7 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "${FRONTEND_PORT:-3000}:${FRONTEND_PORT:-3000}"
+      - "${FRONTEND_PORT:-3000}:3000"
     env_file:
       - path: ./.env
         required: false
@@ -102,7 +110,11 @@ services:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://${BACKEND_HOST:-backend}:${BACKEND_PORT:-8080}}
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-${GOOGLE_CLIENT_ID:-}}
     healthcheck:
-      test: ["CMD-SHELL", "node -e 'fetch(\"http://localhost:${FRONTEND_PORT:-3000}/\").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'"]
+      test:
+        [
+          "CMD-SHELL",
+          'node -e ''fetch("http://localhost:${FRONTEND_PORT:-3000}/").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))''',
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
