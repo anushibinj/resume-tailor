@@ -140,7 +140,8 @@ docker compose up --build
 Next.js (:3000) ──REST──▶ Spring Boot (:8080) ──▶ Postgres (:5432)
                                  │
                                  ├──▶ your LLM   (OpenAI-compatible /chat/completions)
-                                 └──▶ docker run resume-tailor-tex   (pdflatex / pandoc)
+                                 ├──▶ docker run resume-tailor-tex   (LaTeX export)
+                                 └──▶ flexmark-pdf-converter         (Markdown export)
 ```
 
 A run is asynchronous: `POST /api/runs` returns immediately with a `PENDING` run and the
