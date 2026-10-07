@@ -100,6 +100,12 @@
             <groupId>com.vladsch.flexmark</groupId>
             <artifactId>flexmark-pdf-converter</artifactId>
             <version>${flexmark.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
