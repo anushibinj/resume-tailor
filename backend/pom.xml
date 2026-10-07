@@ -19,6 +19,7 @@
         <testcontainers.version>1.20.4</testcontainers.version>
         <google-api-client.version>2.7.2</google-api-client.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <flexmark.version>0.64.8</flexmark.version>
     </properties>
     <dependencies>
         <dependency>
@@ -88,6 +89,17 @@
             <groupId>me.paulschwarz</groupId>
             <artifactId>spring-dotenv</artifactId>
             <version>4.0.0</version>
+        </dependency>
+        <!-- Markdown to HTML and PDF conversion -->
+        <dependency>
+            <groupId>com.vladsch.flexmark</groupId>
+            <artifactId>flexmark-all</artifactId>
+            <version>${flexmark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.vladsch.flexmark</groupId>
+            <artifactId>flexmark-pdf-converter</artifactId>
+            <version>${flexmark.version}</version>
         </dependency>
 
         <dependency>
