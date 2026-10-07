@@ -1,0 +1,138 @@
+@page {
+    size: A4;
+    margin: 18mm 16mm;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.45;
+    color: #222222;
+    margin: 0;
+    padding: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: #111111;
+    font-weight: 600;
+    margin-top: 0;
+    page-break-after: avoid;
+}
+
+h1 {
+    font-size: 20pt;
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+h2 {
+    font-size: 13pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1.5px solid #333333;
+    padding-bottom: 2px;
+    margin-top: 14px;
+    margin-bottom: 6px;
+}
+
+h3 {
+    font-size: 11pt;
+    margin-top: 10px;
+    margin-bottom: 4px;
+}
+
+h4 {
+    font-size: 10.5pt;
+    margin-top: 8px;
+    margin-bottom: 2px;
+}
+
+p {
+    margin-top: 0;
+    margin-bottom: 6px;
+}
+
+ul, ol {
+    margin-top: 0;
+    margin-bottom: 6px;
+    padding-left: 20px;
+}
+
+li {
+    margin-bottom: 3px;
+}
+
+li > p {
+    margin-bottom: 0;
+}
+
+a {
+    color: #0056b3;
+    text-decoration: none;
+}
+
+code {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 9.5pt;
+    background-color: #f4f4f4;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+pre {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 9pt;
+    background-color: #f4f4f4;
+    padding: 8px;
+    border-radius: 4px;
+    margin: 6px 0;
+    page-break-inside: avoid;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+pre code {
+    background: none;
+    padding: 0;
+}
+
+blockquote {
+    margin: 6px 0;
+    padding-left: 12px;
+    border-left: 3px solid #ccc;
+    color: #555555;
+    font-style: italic;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0;
+    page-break-inside: avoid;
+    font-size: 10pt;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 6px 8px;
+    text-align: left;
+}
+
+th {
+    background-color: #f7f7f7;
+    font-weight: 600;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #ccc;
+    margin: 12px 0;
+}
+
+.page-break {
+    page-break-before: always;
+}
+
+.keep-together {
+    page-break-inside: avoid;
+}
