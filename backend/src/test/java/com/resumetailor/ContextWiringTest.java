@@ -2,6 +2,9 @@ package com.resumetailor;
 
 import com.resumetailor.export.ExportService;
 import com.resumetailor.llm.LlmProfileService;
+import com.resumetailor.pdf.MarkdownPdfConverter;
+import com.resumetailor.pdf.PdfCompiler;
+import com.resumetailor.pdf.RoutingPdfCompiler;
 import com.resumetailor.resume.ResumeService;
 import com.resumetailor.tailoring.TailoringRunner;
 import com.resumetailor.tailoring.TailoringService;
@@ -61,6 +64,12 @@ class ContextWiringTest {
     private ExportService exportService;
 
     @Autowired
+    private PdfCompiler pdfCompiler;
+
+    @Autowired
+    private MarkdownPdfConverter markdownPdfConverter;
+
+    @Autowired
     private CurrentUserProvider currentUserProvider;
 
     @Autowired
@@ -78,6 +87,8 @@ class ContextWiringTest {
         assertThat(tailoringRunner).isNotNull();
         assertThat(llmProfileService).isNotNull();
         assertThat(exportService).isNotNull();
+        assertThat(pdfCompiler).isInstanceOf(RoutingPdfCompiler.class);
+        assertThat(markdownPdfConverter).isNotNull();
 
         // v1 seeded a single local user on startup; v2 users only exist once someone
         // actually signs in with Google, so a fresh boot has none.
