@@ -41,7 +41,8 @@ flowchart TB
 
     db[("Postgres<br/>users · resumes · job_descriptions<br/>tailoring_runs (+ summary options as JSON) · run_keywords<br/>run_suggestions · llm_profiles<br/>resume_questions (question/answer history, flat -- not a conversation)<br/>skill_definitions (shared by all users)")]
     llm["Your LLM<br/>OpenAI-compatible<br/>/chat/completions"]
-    tex["docker run resume-tailor-tex<br/>--network none · -no-shell-escape<br/>memory + time capped"]
+    tex["docker run resume-tailor-tex<br/>(LaTeX PDF export)<br/>--network none · -no-shell-escape<br/>memory + time capped"]
+    flexmark["flexmark-pdf-converter<br/>(Markdown PDF export)<br/>in-process HTML + CSS to PDF"]
 
     signin -- "ID token" --> authctrl
     authctrl -- "verify against Google's public keys" --> google
@@ -76,9 +77,10 @@ flowchart TB
 
     runview -- "poll every 2s until terminal" --> ctrl
     db --> pick --> rebuild --> splice --> runview
-    splice -- "export PDF" --> tex --> runview
+    splice -- "export PDF (LaTeX)" --> tex --> runview
+    splice -- "export PDF (Markdown)" --> flexmark --> runview
 
     classDef guard fill:#e4ecf5,stroke:#2f5d8c,color:#1d2b2f;
     classDef external fill:#f5efdf,stroke:#8a6d2b,color:#1d2b2f;
-    class owner,jwtfilter,gaps,summary,splice,qa guard;
+    class owner,jwtfilter,gaps,summary,splice,qa,flexmark guard;
     class llm,tex,google external;
