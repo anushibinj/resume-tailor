@@ -193,6 +193,7 @@ export interface CreateRunRequest {
   jdText?: string;
   company?: string;
   role?: string;
+  jobUrl?: string;
   sourceUrl?: string;
   llmProfileId?: string | null;
 }

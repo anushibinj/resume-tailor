@@ -19,6 +19,7 @@ export default function TailorPage() {
   const [jdText, setJdText] = useState("");
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
+  const [jobUrl, setJobUrl] = useState("");
 
   // Preselect the default resume once the list arrives.
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function TailorPage() {
         jdText,
         company: company.trim() || undefined,
         role: role.trim() || undefined,
+        jobUrl: jobUrl.trim() || undefined,
       }),
     onSuccess: (run) => router.push(`/runs/${run.id}`),
     onError: (error: Error) => toast.error(error.message),
@@ -82,7 +84,7 @@ export default function TailorPage() {
           start.mutate();
         }}
       >
-        <Panel className="p-5">
+        <Panel className="space-y-4 p-5">
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Start from">
               <select
@@ -109,6 +111,13 @@ export default function TailorPage() {
               />
             </Field>
           </div>
+          <Field label="Job URL" hint="Optional — link to the job posting.">
+            <Input
+              value={jobUrl}
+              onChange={(e) => setJobUrl(e.target.value)}
+              placeholder="https://example.com/careers/job-posting"
+            />
+          </Field>
         </Panel>
 
         <Panel className="p-5">
