@@ -1,5 +1,6 @@
 package com.resumetailor.tailoring;
 
+import com.resumetailor.jd.JobDescription;
 import com.resumetailor.keyword.JdKeyword;
 import com.resumetailor.keyword.KeywordImportance;
 import com.resumetailor.resume.ResumeFormat;
@@ -96,5 +97,64 @@ class PromptsTest {
         assertThat(system).contains("4 lines: 350 to 400 characters");
         assertThat(system).contains("7 lines: 650 to 700 characters");
         assertThat(system).contains("about 100 visible");
+    }
+
+    @Test
+    void jdAnalysisUserIncludesCompanyRoleAndJobUrlWhenSupplied() {
+        JobDescription jd = new JobDescription();
+        jd.setCompany("Acme Corp");
+        jd.setRole("Senior Backend Engineer");
+        jd.setSourceUrl("https://acme.com/jobs/123");
+        jd.setRawText("Must know Spring Boot and Postgres.");
+
+        String prompt = Prompts.jdAnalysisUser(jd);
+
+        assertThat(prompt).contains("Company (given by the candidate): Acme Corp\n");
+        assertThat(prompt).contains("Role (given by the candidate): Senior Backend Engineer\n");
+        assertThat(prompt).contains("Job URL (given by the candidate): https://acme.com/jobs/123\n");
+        assertThat(prompt).contains("JOB DESCRIPTION:\nMust know Spring Boot and Postgres.");
+    }
+
+    @Test
+    void jdAnalysisUserIncludesOnlyJobUrlWhenCompanyAndRoleOmitted() {
+        JobDescription jd = new JobDescription();
+        jd.setSourceUrl("https://example.com/jobs/456");
+        jd.setRawText("Looking for a developer.");
+
+        String prompt = Prompts.jdAnalysisUser(jd);
+
+        assertThat(prompt).doesNotContain("Company (given by the candidate)");
+        assertThat(prompt).doesNotContain("Role (given by the candidate)");
+        assertThat(prompt).contains("Job URL (given by the candidate): https://example.com/jobs/456\n");
+        assertThat(prompt).contains("JOB DESCRIPTION:\nLooking for a developer.");
+    }
+
+    @Test
+    void jdAnalysisUserOmitsJobUrlWhenNotSuppliedOrBlank() {
+        JobDescription jd = new JobDescription();
+        jd.setCompany("Acme");
+        jd.setRole("Lead");
+        jd.setSourceUrl("   ");
+        jd.setRawText("JD raw text");
+
+        String prompt = Prompts.jdAnalysisUser(jd);
+
+        assertThat(prompt).contains("Company (given by the candidate): Acme\n");
+        assertThat(prompt).contains("Role (given by the candidate): Lead\n");
+        assertThat(prompt).doesNotContain("Job URL");
+        assertThat(prompt).contains("JOB DESCRIPTION:\nJD raw text");
+    }
+
+    @Test
+    void jdAnalysisUserContainsOnlyRawTextWhenAllContextOmitted() {
+        JobDescription jd = new JobDescription();
+        jd.setRawText("Raw posting text only.");
+
+        String prompt = Prompts.jdAnalysisUser(jd);
+
+        assertThat(prompt).doesNotContain("Company (given by the candidate)");
+        assertThat(prompt).doesNotContain("Role (given by the candidate)");
+        assertThat(prompt).doesNotContain("Job URL (given by the candidate)");
+        assertThat(prompt).isEqualTo("\nJOB DESCRIPTION:\nRaw posting text only.");
     }
 }

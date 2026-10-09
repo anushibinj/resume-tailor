@@ -13,6 +13,7 @@ import com.resumetailor.tailoring.TailoringDtos.SuggestionResponse;
 import com.resumetailor.tailoring.TailoringDtos.SummaryResponse;
 import com.resumetailor.tailoring.TailoringDtos.SummaryVariantResponse;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
@@ -26,6 +27,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -97,6 +100,89 @@ class TailoringControllerTest {
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.id").value(RUN_ID.toString()));
+    }
+
+    @Test
+    void acceptsARunWithJobUrl() throws Exception {
+        ArgumentCaptor<CreateRunRequest> captor = ArgumentCaptor.forClass(CreateRunRequest.class);
+        given(tailoringService.createRun(captor.capture())).willReturn(detail(RunStatus.PENDING));
+
+        mockMvc.perform(post("/api/runs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "jdText": "We need Kubernetes",
+                                  "company": "Acme",
+                                  "role": "Backend Engineer",
+                                  "jobUrl": "https://acme.com/jobs/backend"
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("PENDING"));
+
+        assertThat(captor.getValue().jobUrl()).isEqualTo("https://acme.com/jobs/backend");
+        assertThat(captor.getValue().company()).isEqualTo("Acme");
+        assertThat(captor.getValue().role()).isEqualTo("Backend Engineer");
+    }
+
+    @Test
+    void acceptsARunWithoutJobUrl() throws Exception {
+        ArgumentCaptor<CreateRunRequest> captor = ArgumentCaptor.forClass(CreateRunRequest.class);
+        given(tailoringService.createRun(captor.capture())).willReturn(detail(RunStatus.PENDING));
+
+        mockMvc.perform(post("/api/runs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "jdText": "We need Kubernetes",
+                                  "company": "Acme",
+                                  "role": "Backend Engineer"
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("PENDING"));
+
+        assertThat(captor.getValue().jobUrl()).isNull();
+    }
+
+    @Test
+    void acceptsARunWithAllOptionalFieldsOmitted() throws Exception {
+        ArgumentCaptor<CreateRunRequest> captor = ArgumentCaptor.forClass(CreateRunRequest.class);
+        given(tailoringService.createRun(captor.capture())).willReturn(detail(RunStatus.PENDING));
+
+        mockMvc.perform(post("/api/runs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "jdText": "We need Kubernetes"
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("PENDING"));
+
+        assertThat(captor.getValue().company()).isNull();
+        assertThat(captor.getValue().role()).isNull();
+        assertThat(captor.getValue().jobUrl()).isNull();
+    }
+
+    @Test
+    void acceptsARunWithLegacySourceUrl() throws Exception {
+        ArgumentCaptor<CreateRunRequest> captor = ArgumentCaptor.forClass(CreateRunRequest.class);
+        given(tailoringService.createRun(captor.capture())).willReturn(detail(RunStatus.PENDING));
+
+        mockMvc.perform(post("/api/runs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "jdText": "We need Kubernetes",
+                                  "sourceUrl": "https://example.com/source"
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("PENDING"));
+
+        assertThat(captor.getValue().jobUrl()).isEqualTo("https://example.com/source");
+        assertThat(captor.getValue().sourceUrl()).isEqualTo("https://example.com/source");
     }
 
     @Test
