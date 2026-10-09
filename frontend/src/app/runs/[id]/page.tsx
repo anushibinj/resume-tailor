@@ -5,7 +5,7 @@ import { AlertTriangle, Copy, Download, FileText, RefreshCw, Trash2 } from "luci
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { CoverageMeter } from "@/components/coverage-meter";
@@ -38,6 +38,8 @@ export default function RunPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("review");
   const [pendingSuggestion, setPendingSuggestion] = useState<string | null>(null);
+  const [isAddingSkill, setIsAddingSkill] = useState(false);
+  const addingSkillRef = useRef(false);
 
   const run = useQuery({
     queryKey: ["run", id],
@@ -66,6 +68,31 @@ export default function RunPage() {
     onError: (error: unknown) => toast.error(describeError(error)),
     onSettled: () => setPendingSuggestion(null),
   });
+
+  const handleDecide = async (suggestionId: string, status: Suggestion["status"]) => {
+    if (status === "ACCEPTED") {
+      if (addingSkillRef.current || isAddingSkill || addAllMissing.isPending) {
+        return;
+      }
+      addingSkillRef.current = true;
+      setIsAddingSkill(true);
+      setPendingSuggestion(suggestionId);
+      try {
+        await decide.mutateAsync({ suggestionId, status });
+      } catch {
+        // Error toast is handled by decide's onError callback
+      } finally {
+        addingSkillRef.current = false;
+        setIsAddingSkill(false);
+        setPendingSuggestion(null);
+      }
+    } else {
+      if (addingSkillRef.current || isAddingSkill) {
+        return;
+      }
+      decide.mutate({ suggestionId, status });
+    }
+  };
 
   // Switching length only swaps in text that was already written, so it is cheap and the
   // slider applies each move to the cached run straight away. Moves are queued one after
@@ -284,12 +311,16 @@ export default function RunPage() {
               </div>
               <GapsPane
                 data={data}
-                onDecide={(suggestionId, status) => decide.mutate({ suggestionId, status })}
+                onDecide={handleDecide}
                 pendingId={pendingSuggestion}
                 onRecheck={() => recheck.mutate()}
                 rechecking={recheck.isPending}
-                onAddAllMissing={(suggestionIds) => addAllMissing.mutate(suggestionIds)}
+                onAddAllMissing={(suggestionIds) => {
+                  if (addingSkillRef.current || isAddingSkill) return;
+                  addAllMissing.mutate(suggestionIds);
+                }}
                 addingAll={addAllMissing.isPending}
+                isAddingSkill={isAddingSkill}
               />
             </Panel>
 
@@ -319,6 +350,7 @@ function GapsPane({
   rechecking,
   onAddAllMissing,
   addingAll,
+  isAddingSkill = false,
 }: {
   data: RunDetail;
   onDecide: (suggestionId: string, status: Suggestion["status"]) => void;
@@ -327,6 +359,7 @@ function GapsPane({
   rechecking: boolean;
   onAddAllMissing: (suggestionIds: string[]) => void;
   addingAll: boolean;
+  isAddingSkill?: boolean;
 }) {
   if (data.status !== "COMPLETED") {
     return <p className="text-sm text-ink-soft">Available once the rewrite finishes.</p>;
@@ -359,6 +392,7 @@ function GapsPane({
             onDecide={onDecide}
             pendingId={pendingId}
             modelUsed={data.modelUsed}
+            isAddingSkill={isAddingSkill}
           />
         ) : null}
       </div>
@@ -387,6 +421,7 @@ function GapsPane({
       modelUsed={data.modelUsed}
       onAddAllMissing={onAddAllMissing}
       addingAll={addingAll}
+      isAddingSkill={isAddingSkill}
     />
   );
 }
