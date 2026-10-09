@@ -26,6 +26,7 @@ export function KeywordMargin({
   modelUsed,
   onAddAllMissing,
   addingAll,
+  isAddingSkill = false,
 }: {
   keywords: KeywordResult[];
   otherSuggestions: Suggestion[];
@@ -34,6 +35,7 @@ export function KeywordMargin({
   modelUsed: string | null;
   onAddAllMissing?: (suggestionIds: string[]) => void;
   addingAll?: boolean;
+  isAddingSkill?: boolean;
 }) {
   if (keywords.length === 0 && otherSuggestions.length === 0) {
     return <p className="text-sm text-ink-soft">No requirements were extracted from this posting.</p>;
@@ -48,7 +50,7 @@ export function KeywordMargin({
       {onAddAllMissing && missingIds.length > 0 ? (
         <Button
           variant="primary"
-          disabled={addingAll}
+          disabled={addingAll || isAddingSkill}
           onClick={() => onAddAllMissing(missingIds)}
           className="w-full px-2.5 py-1.5 text-xs"
         >
@@ -91,7 +93,13 @@ export function KeywordMargin({
             <ul className="space-y-2">
               {gaps.map((keyword) => (
                 <li key={keyword.keyword}>
-                  <GapRow keyword={keyword} onDecide={onDecide} pendingId={pendingId} extraBusy={addingAll} />
+                  <GapRow
+                    keyword={keyword}
+                    onDecide={onDecide}
+                    pendingId={pendingId}
+                    extraBusy={addingAll}
+                    isAddingSkill={isAddingSkill}
+                  />
                 </li>
               ))}
             </ul>
@@ -105,7 +113,13 @@ export function KeywordMargin({
           <ul className="space-y-2">
             {otherSuggestions.map((suggestion) => (
               <li key={suggestion.id}>
-                <SuggestionRow suggestion={suggestion} onDecide={onDecide} pendingId={pendingId} />
+                <SuggestionRow
+                  suggestion={suggestion}
+                  onDecide={onDecide}
+                  pendingId={pendingId}
+                  extraBusy={addingAll}
+                  isAddingSkill={isAddingSkill}
+                />
               </li>
             ))}
           </ul>
@@ -125,11 +139,13 @@ function GapRow({
   onDecide,
   pendingId,
   extraBusy,
+  isAddingSkill = false,
 }: {
   keyword: KeywordResult;
   onDecide: (id: string, status: SuggestionStatus) => void;
   pendingId: string | null;
   extraBusy?: boolean;
+  isAddingSkill?: boolean;
 }) {
   const addition = keyword.addition;
   const added = isCovered(keyword);
@@ -195,8 +211,11 @@ function GapRow({
             <>
               <Button
                 variant="primary"
-                disabled={busy}
-                onClick={() => onDecide(addition.id, "ACCEPTED")}
+                disabled={busy || isAddingSkill}
+                onClick={() => {
+                  if (busy || isAddingSkill) return;
+                  onDecide(addition.id, "ACCEPTED");
+                }}
                 className="px-2.5 py-1 text-xs"
               >
                 <Plus className="size-3.5" /> Add to resume
@@ -234,13 +253,17 @@ function SuggestionRow({
   suggestion,
   onDecide,
   pendingId,
+  extraBusy,
+  isAddingSkill = false,
 }: {
   suggestion: Suggestion;
   onDecide: (id: string, status: SuggestionStatus) => void;
   pendingId: string | null;
+  extraBusy?: boolean;
+  isAddingSkill?: boolean;
 }) {
   const accepted = suggestion.status === "ACCEPTED";
-  const busy = pendingId === suggestion.id;
+  const busy = pendingId === suggestion.id || Boolean(extraBusy);
 
   return (
     <div
@@ -259,8 +282,11 @@ function SuggestionRow({
           <>
             <Button
               variant="primary"
-              disabled={busy}
-              onClick={() => onDecide(suggestion.id, "ACCEPTED")}
+              disabled={busy || isAddingSkill}
+              onClick={() => {
+                if (busy || isAddingSkill) return;
+                onDecide(suggestion.id, "ACCEPTED");
+              }}
               className="px-2.5 py-1 text-xs"
             >
               <Check className="size-3.5" /> Add to resume
