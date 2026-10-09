@@ -41,6 +41,9 @@ public class JobDescriptionService {
             if (role != null && !role.isBlank()) {
                 jd.setRole(role.trim());
             }
+            if (sourceUrl != null && !sourceUrl.isBlank()) {
+                jd.setSourceUrl(sourceUrl.trim());
+            }
             return repository.save(jd);
         }
 

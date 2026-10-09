@@ -69,6 +69,9 @@ public final class Prompts {
         if (jd.getRole() != null && !jd.getRole().isBlank()) {
             sb.append("Role (given by the candidate): ").append(jd.getRole()).append('\n');
         }
+        if (jd.getSourceUrl() != null && !jd.getSourceUrl().isBlank()) {
+            sb.append("Job URL (given by the candidate): ").append(jd.getSourceUrl()).append('\n');
+        }
         sb.append("\nJOB DESCRIPTION:\n").append(jd.getRawText());
         return sb.toString();
     }

@@ -65,7 +65,7 @@ public class TailoringService {
             jd = jobDescriptionService.require(request.jobDescriptionId());
         } else if (request.jdText() != null && !request.jdText().isBlank()) {
             jd = jobDescriptionService.findOrCreate(
-                    request.company(), request.role(), request.sourceUrl(), request.jdText().strip());
+                    request.company(), request.role(), request.jobUrl(), request.jdText().strip());
         } else {
             throw new BadRequestException("Paste a job description to tailor against");
         }
