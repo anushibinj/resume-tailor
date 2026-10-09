@@ -35,4 +35,12 @@ public class JobDescription extends AuditedEntity {
     /** SHA-256 of {@link #rawText}; lets an identical JD reuse a cached analysis. */
     @Column(name = "content_hash", nullable = false, length = 64)
     private String contentHash;
+
+    public String getJobUrl() {
+        return sourceUrl;
+    }
+
+    public void setJobUrl(String jobUrl) {
+        this.sourceUrl = jobUrl;
+    }
 }

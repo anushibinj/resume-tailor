@@ -19,6 +19,8 @@ public final class TailoringDtos {
     /**
      * @param resumeId         optional; falls back to the user's default resume
      * @param jobDescriptionId reuse a stored JD, or supply {@code jdText} for a new one
+     * @param jobUrl           optional; link to the job posting
+     * @param sourceUrl        legacy alias for {@code jobUrl}
      * @param llmProfileId     optional; falls back to the user's default LLM profile
      */
     public record CreateRunRequest(
@@ -28,7 +30,34 @@ public final class TailoringDtos {
             @Size(max = 255) String company,
             @Size(max = 255) String role,
             @Size(max = 1024) String sourceUrl,
+            @Size(max = 1024) String jobUrl,
             UUID llmProfileId) {
+
+        public CreateRunRequest(
+                UUID resumeId,
+                UUID jobDescriptionId,
+                String jdText,
+                String company,
+                String role,
+                String sourceUrl,
+                UUID llmProfileId) {
+            this(resumeId, jobDescriptionId, jdText, company, role, sourceUrl, null, llmProfileId);
+        }
+
+        public String effectiveJobUrl() {
+            if (jobUrl != null && !jobUrl.isBlank()) {
+                return jobUrl.trim();
+            }
+            if (sourceUrl != null && !sourceUrl.isBlank()) {
+                return sourceUrl.trim();
+            }
+            return null;
+        }
+
+        @Override
+        public String jobUrl() {
+            return effectiveJobUrl();
+        }
     }
 
     public record RunSummary(
