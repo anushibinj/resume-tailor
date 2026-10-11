@@ -151,6 +151,7 @@ export interface RunSummary {
   status: RunStatus;
   company: string | null;
   role: string | null;
+  jobUrl?: string | null;
   resumeName: string | null;
   format: ResumeFormat;
   matchScore: number | null;
@@ -166,6 +167,7 @@ export interface RunDetail {
   format: ResumeFormat;
   company: string | null;
   role: string | null;
+  jobUrl?: string | null;
   resumeId: string;
   resumeName: string | null;
   jobDescriptionId: string;
