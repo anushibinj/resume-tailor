@@ -9,6 +9,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { CoverageMeter } from "@/components/coverage-meter";
+import { JobListingLink } from "@/components/job-listing-link";
 import { Button, Panel, Skeleton, Spinner, Tag } from "@/components/ui";
 import { api, describeError } from "@/lib/api";
 import type { RunDetail, Suggestion } from "@/lib/types";
@@ -210,6 +211,11 @@ export default function RunPage() {
               {data.role ?? "Untitled role"}
               {data.company ? <span className="text-ink-soft"> at {data.company}</span> : null}
             </h1>
+            {data.jobUrl ? (
+              <div className="mt-1.5">
+                <JobListingLink url={data.jobUrl} />
+              </div>
+            ) : null}
             <p className="mt-2 text-sm text-ink-soft">
               From {data.resumeName ?? "a deleted resume"} ·{" "}
               {data.format === "LATEX" ? "LaTeX" : "Markdown"} · started {formatDate(data.createdAt)}

@@ -5,6 +5,7 @@ import { Trash2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
+import { JobListingLink } from "@/components/job-listing-link";
 import { Button, EmptyState, PageHeading, Panel, Spinner, Tag } from "@/components/ui";
 import { api, describeError } from "@/lib/api";
 import type { RunStatus, RunSummary } from "@/lib/types";
@@ -72,46 +73,57 @@ export default function RunsPage() {
 
       <div className="space-y-2">
         {runs.data?.content.map((run) => (
-          <Link key={run.id} href={`/runs/${run.id}`} className="block">
-            <Panel className="flex flex-wrap items-center gap-4 p-4 transition-colors hover:border-pencil">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-serif text-lg text-ink">
+          <Panel
+            key={run.id}
+            className="group relative flex flex-wrap items-center gap-4 p-4 transition-colors hover:border-pencil"
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-serif text-lg text-ink">
+                  <Link
+                    href={`/runs/${run.id}`}
+                    className="focus:outline-hidden after:absolute after:inset-0 hover:underline"
+                  >
                     {run.role ?? "Untitled role"}
-                    {run.company ? <span className="text-ink-soft"> at {run.company}</span> : null}
-                  </h2>
-                  <Tag tone={STATUS_TONE[run.status]}>{STATUS_LABEL[run.status]}</Tag>
-                </div>
-                <p className="mt-1 text-sm text-ink-soft">
-                  From {run.resumeName ?? "a deleted resume"} · {formatRelative(run.createdAt)}
-                </p>
+                    {run.company ? <span className="font-normal text-ink-soft"> at {run.company}</span> : null}
+                  </Link>
+                </h2>
+                <Tag tone={STATUS_TONE[run.status]}>{STATUS_LABEL[run.status]}</Tag>
               </div>
-
-              {run.matchScore !== null ? (
-                <div className="text-right">
-                  <div className="font-serif text-2xl leading-none text-ink">
-                    {run.matchScore}
-                    <span className="text-sm text-ink-faint">%</span>
-                  </div>
-                  <div className="mt-1 text-xs text-ink-faint">covered</div>
+              {run.jobUrl ? (
+                <div className="relative z-10 mt-1">
+                  <JobListingLink url={run.jobUrl} />
                 </div>
               ) : null}
+              <p className="mt-1 text-sm text-ink-soft">
+                From {run.resumeName ?? "a deleted resume"} · {formatRelative(run.createdAt)}
+              </p>
+            </div>
 
-              <Button
-                variant="danger"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  confirmDelete(run);
-                }}
-                disabled={remove.isPending}
-                aria-label="Delete run"
-                className="shrink-0 px-2 py-1.5"
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            </Panel>
-          </Link>
+            {run.matchScore !== null ? (
+              <div className="text-right">
+                <div className="font-serif text-2xl leading-none text-ink">
+                  {run.matchScore}
+                  <span className="text-sm text-ink-faint">%</span>
+                </div>
+                <div className="mt-1 text-xs text-ink-faint">covered</div>
+              </div>
+            ) : null}
+
+            <Button
+              variant="danger"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                confirmDelete(run);
+              }}
+              disabled={remove.isPending}
+              aria-label="Delete run"
+              className="relative z-10 shrink-0 px-2 py-1.5"
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </Panel>
         ))}
       </div>
     </>
