@@ -65,6 +65,7 @@ public final class TailoringDtos {
             RunStatus status,
             String company,
             String role,
+            String jobUrl,
             String resumeName,
             ResumeFormat format,
             Integer matchScore,
@@ -80,6 +81,7 @@ public final class TailoringDtos {
             ResumeFormat format,
             String company,
             String role,
+            String jobUrl,
             UUID resumeId,
             String resumeName,
             UUID jobDescriptionId,
@@ -99,6 +101,38 @@ public final class TailoringDtos {
             Instant createdAt,
             Instant startedAt,
             Instant finishedAt) {
+
+        public RunDetail(
+                UUID id,
+                RunStatus status,
+                GapsStatus gapsStatus,
+                String gapsError,
+                ResumeFormat format,
+                String company,
+                String role,
+                UUID resumeId,
+                String resumeName,
+                UUID jobDescriptionId,
+                String jobDescriptionText,
+                String originalSource,
+                String tailoredSource,
+                String modelUsed,
+                Integer promptTokens,
+                Integer completionTokens,
+                Integer matchScore,
+                String errorMessage,
+                List<SectionDiff> sections,
+                List<KeywordResponse> keywords,
+                List<SuggestionResponse> otherSuggestions,
+                SummaryResponse summary,
+                Instant createdAt,
+                Instant startedAt,
+                Instant finishedAt) {
+            this(id, status, gapsStatus, gapsError, format, company, role, null, resumeId, resumeName,
+                    jobDescriptionId, jobDescriptionText, originalSource, tailoredSource, modelUsed,
+                    promptTokens, completionTokens, matchScore, errorMessage, sections, keywords,
+                    otherSuggestions, summary, createdAt, startedAt, finishedAt);
+        }
     }
 
     /**

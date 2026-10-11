@@ -8,6 +8,7 @@ import com.resumetailor.resume.ResumeFormat;
 import com.resumetailor.tailoring.TailoringDtos.CreateRunRequest;
 import com.resumetailor.tailoring.TailoringDtos.KeywordResponse;
 import com.resumetailor.tailoring.TailoringDtos.RunDetail;
+import com.resumetailor.tailoring.TailoringDtos.RunSummary;
 import com.resumetailor.tailoring.TailoringDtos.SectionDiff;
 import com.resumetailor.tailoring.TailoringDtos.SuggestionResponse;
 import com.resumetailor.tailoring.TailoringDtos.SummaryResponse;
@@ -20,6 +21,8 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -66,11 +69,16 @@ class TailoringControllerTest {
     }
 
     private static RunDetail detail(RunStatus status, GapsStatus gapsStatus) {
+        return detail(status, gapsStatus, "https://acme.com/jobs/backend");
+    }
+
+    private static RunDetail detail(RunStatus status, GapsStatus gapsStatus, String jobUrl) {
         SuggestionResponse addition = new SuggestionResponse(
                 SUGGESTION_ID, SuggestionKind.SKILL, "Terraform", "Skills", "Terraform",
                 null, SuggestionStatus.PROPOSED);
         return new RunDetail(
                 RUN_ID, status, gapsStatus, null, ResumeFormat.MARKDOWN, "Acme", "Backend Engineer",
+                jobUrl,
                 UUID.randomUUID(), "Backend-leaning", UUID.randomUUID(), "We need Kubernetes",
                 "## Experience\n- Built billing",
                 status == RunStatus.COMPLETED ? "## Experience\n- Shipped billing on Kubernetes" : null,
@@ -191,6 +199,7 @@ class TailoringControllerTest {
 
         mockMvc.perform(get("/api/runs/{id}", RUN_ID))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.jobUrl").value("https://acme.com/jobs/backend"))
                 .andExpect(jsonPath("$.matchScore").value(75))
                 .andExpect(jsonPath("$.gapsStatus").value("COMPLETED"))
                 .andExpect(jsonPath("$.sections[0].title").value("Experience"))
@@ -207,6 +216,32 @@ class TailoringControllerTest {
                 .andExpect(jsonPath("$.keywords[1].addition.content").value("Terraform"))
                 // Nothing is applied until the user says so.
                 .andExpect(jsonPath("$.keywords[1].addition.status").value("PROPOSED"));
+    }
+
+    @Test
+    void returnsTheFullRunWithoutJobUrlWhenOmitted() throws Exception {
+        given(tailoringService.getRun(RUN_ID)).willReturn(detail(RunStatus.COMPLETED, GapsStatus.COMPLETED, null));
+
+        mockMvc.perform(get("/api/runs/{id}", RUN_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.jobUrl").doesNotExist())
+                .andExpect(jsonPath("$.matchScore").value(75));
+    }
+
+    @Test
+    void listsRunsWithJobUrlWhenAvailable() throws Exception {
+        RunSummary summary = new RunSummary(
+                RUN_ID, RunStatus.COMPLETED, "Acme", "Backend Engineer", "https://acme.com/jobs/backend",
+                "Backend-leaning", ResumeFormat.MARKDOWN, 75, Instant.now(), Instant.now());
+        given(tailoringService.listRuns(any()))
+                .willReturn(new PageImpl<>(List.of(summary), PageRequest.of(0, 20), 1));
+
+        mockMvc.perform(get("/api/runs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(RUN_ID.toString()))
+                .andExpect(jsonPath("$.content[0].company").value("Acme"))
+                .andExpect(jsonPath("$.content[0].role").value("Backend Engineer"))
+                .andExpect(jsonPath("$.content[0].jobUrl").value("https://acme.com/jobs/backend"));
     }
 
     @Test
