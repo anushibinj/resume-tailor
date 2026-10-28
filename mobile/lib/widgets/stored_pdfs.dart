@@ -162,7 +162,10 @@ class _StoredPdfsPanelState extends ConsumerState<StoredPdfsPanel> {
             ] else ...[
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text('Made the PDF yourself, from the exported source? Keep it here with this run.', style: soft),
+                child: Text(
+                  'Made the PDF yourself, from the exported source? Keep it here with this run.',
+                  style: soft,
+                ),
               ),
               const SizedBox(height: 8),
               AppButton(icon: Icons.upload, busy: _uploading, label: 'Upload PDF', onPressed: busy ? null : _upload),
@@ -194,7 +197,12 @@ class _PdfRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: p.ink)),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 14, color: p.ink),
+                ),
                 Text(
                   '${formatBytes(pdf.sizeBytes)} · ${formatDate(pdf.storedAt)}',
                   style: TextStyle(fontSize: 12, color: p.inkFaint),
