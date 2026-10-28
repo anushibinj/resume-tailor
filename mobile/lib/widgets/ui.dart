@@ -309,45 +309,6 @@ class Spinner extends StatelessWidget {
   }
 }
 
-/// A pulsing placeholder block, sized by the caller to approximate the content it stands in for.
-class Skeleton extends StatefulWidget {
-  const Skeleton({super.key, this.width, this.height = 16});
-
-  final double? width;
-  final double height;
-
-  @override
-  State<Skeleton> createState() => _SkeletonState();
-}
-
-class _SkeletonState extends State<Skeleton> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1000),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Loading',
-      child: FadeTransition(
-        opacity: Tween(begin: 1.0, end: 0.5).animate(_controller),
-        child: Container(
-          width: widget.width,
-          height: widget.height,
-          decoration: BoxDecoration(color: context.palette.surfaceSunk, borderRadius: _radius),
-        ),
-      ),
-    );
-  }
-}
-
 /// Inline text link in the accent colour, underlined -- "go to Settings".
 class InlineLink extends StatelessWidget {
   const InlineLink(this.text, {super.key, required this.onTap, this.fontSize = 14});
