@@ -77,6 +77,9 @@ class AppButton extends StatelessWidget {
     );
 
     return Semantics(
+      // Its own node, so an icon-only button inside a tappable row (a History entry) is
+      // announced and reachable on its own instead of merging into the row.
+      container: true,
       label: semanticLabel,
       button: true,
       child: Opacity(opacity: enabled ? 1 : 0.45, child: button),
