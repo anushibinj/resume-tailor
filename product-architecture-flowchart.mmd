@@ -33,7 +33,7 @@ flowchart TB
         subgraph pipeline["TailoringRunner (async)"]
             analyse["1 · JdAnalyzer<br/>extract keywords + requirements<br/>cached per job description"]
             rewrite["2 · tailoring call<br/>reorder · reword · trim<br/>never invent · keeps your title"]
-            summary["3 · SummaryWriter<br/>the rewrite's summary again at 4-7 lines<br/>quoted back verbatim · facts from the ORIGINAL only<br/>own status · failure keeps the rewrite"]
+            summary["3 · SummaryWriter (parallel with 4)<br/>the rewrite's summary again at 4-7 lines<br/>quoted back verbatim · facts from the ORIGINAL only<br/>own status · failure keeps the rewrite"]
             gaps["4 · GapAnalyzer<br/>which requirements your ORIGINAL resume covers<br/>+ the exact edit to add each gap<br/>+ a description of any skill not yet in the glossary"]
         end
 
@@ -44,7 +44,7 @@ flowchart TB
         splice["AdditionApplier<br/>applies only ACCEPTED additions<br/>anchored · insert-only"]
     end
 
-    db[("Postgres<br/>users · resumes · job_descriptions<br/>tailoring_runs (+ summary options as JSON) · run_keywords<br/>artifacts (storage keys of saved PDFs)<br/>run_suggestions · llm_profiles<br/>resume_questions (question/answer history, flat -- not a conversation)<br/>skill_definitions (shared by all users)")]
+    db[("Postgres<br/>users · resumes · job_descriptions<br/>tailoring_runs (+ summary options as JSON) · run_keywords<br/>artifacts (storage keys of saved PDFs)<br/>run_suggestions · llm_profiles (+ reasoning_effort)<br/>resume_questions (question/answer history, flat -- not a conversation)<br/>skill_definitions (shared by all users)")]
     llm["Your LLM<br/>OpenAI-compatible<br/>/chat/completions"]
     tex["docker run resume-tailor-tex<br/>(LaTeX PDF export)<br/>--network none · -no-shell-escape<br/>memory + time capped"]
     flexmark["flexmark-pdf-converter<br/>(Markdown PDF export)<br/>in-process HTML + CSS to PDF"]
@@ -79,7 +79,9 @@ flowchart TB
     rewrite -- "call 2 (body only,<br/>never the preamble)" --> llm
     gaps -- "call 4" --> llm
     summary -- "call 3" --> llm
-    analyse --> rewrite --> summary --> gaps --> db
+    analyse --> rewrite
+    rewrite --> summary --> db
+    rewrite --> gaps --> db
     glossary -- "known descriptions → prompt only asks for the rest" --> gaps
     gaps -- "new descriptions" --> glossary
     glossary --> db

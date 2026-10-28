@@ -57,6 +57,9 @@ export interface SaveResumeRequest {
   makeDefault?: boolean;
 }
 
+/** How hard a reasoning model may think; "none" leaves the field out of the request. */
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high";
+
 export interface LlmProfile {
   id: string;
   name: string;
@@ -64,6 +67,7 @@ export interface LlmProfile {
   model: string;
   temperature: number;
   maxOutputTokens: number;
+  reasoningEffort: ReasoningEffort;
   isDefault: boolean;
   hasApiKey: boolean;
   /** Masked tail of the key, e.g. "••••4f2a". The key itself never leaves the backend. */
@@ -80,6 +84,7 @@ export interface SaveLlmProfileRequest {
   model: string;
   temperature?: number;
   maxOutputTokens?: number;
+  reasoningEffort?: ReasoningEffort;
   makeDefault?: boolean;
 }
 

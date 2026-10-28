@@ -77,6 +77,7 @@ class FakeBackend {
       'model': 'gpt-4o-mini',
       'temperature': 0.2,
       'maxOutputTokens': 8000,
+      'reasoningEffort': 'low',
       'isDefault': isDefault,
       'hasApiKey': true,
       'apiKeyMask': '••••4f2a',

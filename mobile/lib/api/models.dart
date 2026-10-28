@@ -209,6 +209,15 @@ class SaveResumeRequest {
   Json toJson() => {'name': name, 'sourceText': sourceText};
 }
 
+/// How hard a reasoning model may think; "none" leaves the field out of the request.
+const reasoningEfforts = <({String value, String label})>[
+  (value: 'none', label: "None - don't send (non-reasoning models)"),
+  (value: 'minimal', label: 'Minimal - fastest'),
+  (value: 'low', label: 'Low - recommended'),
+  (value: 'medium', label: 'Medium'),
+  (value: 'high', label: 'High - slowest'),
+];
+
 class LlmProfile {
   const LlmProfile({
     required this.id,
@@ -217,6 +226,7 @@ class LlmProfile {
     required this.model,
     required this.temperature,
     required this.maxOutputTokens,
+    required this.reasoningEffort,
     required this.isDefault,
     required this.hasApiKey,
     required this.apiKeyMask,
@@ -228,6 +238,9 @@ class LlmProfile {
   final String model;
   final double temperature;
   final int maxOutputTokens;
+
+  /// none | minimal | low | medium | high; see [reasoningEfforts].
+  final String reasoningEffort;
   final bool isDefault;
   final bool hasApiKey;
 
@@ -241,6 +254,7 @@ class LlmProfile {
     model: json['model'] as String,
     temperature: _double(json['temperature']) ?? 0,
     maxOutputTokens: _int(json['maxOutputTokens']) ?? 0,
+    reasoningEffort: _str(json['reasoningEffort']) ?? 'low',
     isDefault: json['isDefault'] as bool? ?? false,
     hasApiKey: json['hasApiKey'] as bool? ?? false,
     apiKeyMask: _str(json['apiKeyMask']) ?? '',
@@ -255,6 +269,7 @@ class SaveLlmProfileRequest {
     this.apiKey,
     this.temperature,
     this.maxOutputTokens,
+    this.reasoningEffort,
   });
 
   final String name;
@@ -265,6 +280,7 @@ class SaveLlmProfileRequest {
   final String model;
   final double? temperature;
   final int? maxOutputTokens;
+  final String? reasoningEffort;
 
   Json toJson() => {
     'name': name,
@@ -273,6 +289,7 @@ class SaveLlmProfileRequest {
     'model': model,
     if (temperature != null) 'temperature': temperature,
     if (maxOutputTokens != null) 'maxOutputTokens': maxOutputTokens,
+    if (reasoningEffort != null) 'reasoningEffort': reasoningEffort,
   };
 }
 

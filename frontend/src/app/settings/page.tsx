@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { Button, EmptyState, Field, Input, PageHeading, Panel, Spinner, Tag } from "@/components/ui";
 import { api, describeError } from "@/lib/api";
-import type { LlmProfile, SaveLlmProfileRequest } from "@/lib/types";
+import type { LlmProfile, ReasoningEffort, SaveLlmProfileRequest } from "@/lib/types";
 
 const PRESETS = [
   { label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini" },
@@ -23,7 +23,16 @@ const BLANK: SaveLlmProfileRequest = {
   model: "gpt-4o-mini",
   temperature: 0.2,
   maxOutputTokens: 8000,
+  reasoningEffort: "low",
 };
+
+const EFFORTS: { value: ReasoningEffort; label: string }[] = [
+  { value: "none", label: "None — don't send (non-reasoning models)" },
+  { value: "minimal", label: "Minimal — fastest" },
+  { value: "low", label: "Low — recommended" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High — slowest" },
+];
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -79,6 +88,7 @@ export default function SettingsPage() {
       model: profile.model,
       temperature: profile.temperature,
       maxOutputTokens: profile.maxOutputTokens,
+      reasoningEffort: profile.reasoningEffort,
     });
   };
 
@@ -117,7 +127,7 @@ export default function SettingsPage() {
                     />
                     <Detail
                       label="Temperature"
-                      value={`${profile.temperature} · max ${profile.maxOutputTokens} tokens`}
+                      value={`${profile.temperature} · max ${profile.maxOutputTokens} tokens · reasoning ${profile.reasoningEffort}`}
                     />
                   </dl>
                 </div>
@@ -272,6 +282,24 @@ export default function SettingsPage() {
                     })
                   }
                 />
+              </Field>
+              <Field
+                label="Reasoning effort"
+                hint="For reasoning models (gpt-5, o-series). Lower is much faster and cheaper; endpoints that don't support it are retried without it."
+              >
+                <select
+                  value={form.reasoningEffort ?? "low"}
+                  onChange={(e) =>
+                    setForm({ ...form, reasoningEffort: e.target.value as ReasoningEffort })
+                  }
+                  className="w-full rounded-sm border border-rule-strong bg-surface px-3 py-2 text-sm text-ink focus:border-pencil focus:outline-none"
+                >
+                  {EFFORTS.map((effort) => (
+                    <option key={effort.value} value={effort.value}>
+                      {effort.label}
+                    </option>
+                  ))}
+                </select>
               </Field>
             </div>
 

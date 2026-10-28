@@ -198,6 +198,15 @@ button instead.
 takes, so the model is given a character budget (`SUMMARY_CHARS_PER_LINE` characters per
 line, 90 by default). If your template's text is wider or narrower, change that value.
 
+### Reasoning effort and run time
+
+Each profile has a **Reasoning effort** (None, Minimal, Low, Medium, High), sent as
+`reasoning_effort` on every call. Hidden reasoning tokens are billed and waited for like
+output, and the pipeline's calls are extraction and judgment, so Low is the default (and what
+profiles that existed before the setting were given). None leaves the field out; an endpoint
+that rejects it is retried once without it and remembered. After the rewrite is saved, the
+summary options and the gap check run at the same time.
+
 ### What a skill is: a glossary shared by every user
 
 Postings say things like "cloud-native design patterns" and assume you know. Each missing
@@ -423,6 +432,7 @@ Sign-In setup and how each web feature maps onto the phone.
 | `The TeX image … is not built yet` | `docker build -t resume-tailor-tex docker/tex` |
 | Run fails with a 401 from your provider | Re-enter the key in Settings, then use "Test" |
 | Run fails with "truncated JSON" | Raise **Max output tokens** in Settings |
+| Runs are slow (40 s+ per model call) | A reasoning model (gpt-5, o-series) is spending most of its tokens thinking. Set **Reasoning effort** to Low or Minimal on the profile in Settings (existing profiles default to Low). Use None for models that don't support it |
 | `Can't reach the backend` in the UI | Backend isn't running, or `NEXT_PUBLIC_API_BASE_URL` is wrong |
 | Port 8080 already in use | Set `SERVER_PORT` in `backend/.env` and point `NEXT_PUBLIC_API_BASE_URL` in `frontend/.env.local` at it |
 | A document fails to compile | The error names the first TeX error; fix it in the source and recompile. Any TeX error fails the export, even when TeX could have written a PDF — that PDF would be missing content |

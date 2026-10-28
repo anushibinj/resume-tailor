@@ -114,7 +114,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       _Detail(label: 'API key', value: profile.hasApiKey ? profile.apiKeyMask : 'not set'),
                       _Detail(
                         label: 'Temperature',
-                        value: '${_number(profile.temperature)} · max ${profile.maxOutputTokens} tokens',
+                        value: '${_number(profile.temperature)} · max ${profile.maxOutputTokens} tokens · reasoning ${profile.reasoningEffort}',
                       ),
                       const SizedBox(height: 12),
                       Wrap(
@@ -205,6 +205,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   final _apiKey = TextEditingController();
   late final _temperature = TextEditingController(text: _number(widget.editing?.temperature ?? 0.2));
   late final _maxTokens = TextEditingController(text: '${widget.editing?.maxOutputTokens ?? 8000}');
+  late String _reasoningEffort = widget.editing?.reasoningEffort ?? 'low';
   bool _saving = false;
 
   @override
@@ -234,6 +235,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
       model: _model.text,
       temperature: double.tryParse(_temperature.text.trim()),
       maxOutputTokens: num.tryParse(_maxTokens.text.trim())?.toInt(),
+      reasoningEffort: _reasoningEffort,
     );
     try {
       final editing = widget.editing;
@@ -346,6 +348,25 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
                 controller: _maxTokens,
                 keyboardType: numberKeyboard,
                 validator: _range(256, 200000),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Field(
+              label: 'Reasoning effort',
+              hint:
+                  "For reasoning models (gpt-5, o-series). Lower is much faster and cheaper; endpoints that don't support it are retried without it.",
+              child: DropdownButtonFormField<String>(
+                initialValue: _reasoningEffort,
+                isExpanded: true,
+                dropdownColor: context.palette.surface,
+                style: TextStyle(fontSize: 14, color: context.palette.ink),
+                items: [
+                  for (final effort in reasoningEfforts)
+                    DropdownMenuItem(value: effort.value, child: Text(effort.label, overflow: TextOverflow.ellipsis)),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _reasoningEffort = value);
+                },
               ),
             ),
             const SizedBox(height: 20),
