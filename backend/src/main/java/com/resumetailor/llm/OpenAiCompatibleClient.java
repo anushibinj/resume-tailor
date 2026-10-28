@@ -74,6 +74,11 @@ public class OpenAiCompatibleClient {
     public LlmChatResult chat(LlmSettings settings, String systemPrompt, String userPrompt, boolean jsonMode) {
         String endpointKey = settings.baseUrl() + "|" + settings.model();
         String tokenParam = tokenParamByEndpoint.getOrDefault(endpointKey, MAX_TOKENS);
+        long started = System.nanoTime();
+        int attempts = 1;
+        log.info("LLM call starting: model={} jsonMode={} promptChars={} maxOutputTokens={} endpoint={}",
+                settings.model(), jsonMode, systemPrompt.length() + userPrompt.length(),
+                settings.maxOutputTokens(), settings.baseUrl());
         ResponseEntity<String> response = post(settings, systemPrompt, userPrompt, jsonMode, tokenParam);
 
         // OpenAI's newer models (o-series, gpt-5...) reject max_tokens and want
@@ -82,8 +87,10 @@ public class OpenAiCompatibleClient {
         if (response.getStatusCode().isError()) {
             String other = otherTokenParam(tokenParam, response.getBody());
             if (other != null) {
-                log.info("Endpoint rejected {}; retrying with {}", tokenParam, other);
+                log.warn("Endpoint rejected {} (HTTP {}); retrying with {} -- this repeats the whole call",
+                        tokenParam, response.getStatusCode().value(), other);
                 tokenParam = other;
+                attempts++;
                 response = post(settings, systemPrompt, userPrompt, jsonMode, tokenParam);
                 if (!response.getStatusCode().isError()) {
                     tokenParamByEndpoint.put(endpointKey, tokenParam);
@@ -92,13 +99,24 @@ public class OpenAiCompatibleClient {
         }
 
         if (jsonMode && response.getStatusCode().isError() && mentionsResponseFormat(response.getBody())) {
-            log.info("Endpoint rejected response_format; retrying without JSON mode");
+            log.warn("Endpoint rejected response_format (HTTP {}); retrying without JSON mode -- this repeats the whole call",
+                    response.getStatusCode().value());
+            attempts++;
             response = post(settings, systemPrompt, userPrompt, false, tokenParam);
         }
         if (response.getStatusCode().isError()) {
+            log.warn("LLM call failed after {} attempt(s) in {} ms: HTTP {}",
+                    attempts, elapsedMs(started), response.getStatusCode().value());
             throw new LlmException(describeError(response));
         }
-        return parse(response.getBody());
+        LlmChatResult result = parse(response.getBody());
+        log.info("LLM call finished: model={} attempts={} elapsed={} ms promptTokens={} completionTokens={}",
+                result.model(), attempts, elapsedMs(started), result.promptTokens(), result.completionTokens());
+        return result;
+    }
+
+    private static long elapsedMs(long startedNanos) {
+        return (System.nanoTime() - startedNanos) / 1_000_000;
     }
 
     private ResponseEntity<String> post(LlmSettings settings, String systemPrompt, String userPrompt,
@@ -124,8 +142,11 @@ public class OpenAiCompatibleClient {
             throw new LlmException("Could not build the request for the LLM endpoint: " + ex.getMessage(), ex);
         }
 
+        long sent = System.nanoTime();
+        log.debug("POST {} ({} bytes, {}={}, jsonMode={})",
+                chatCompletionsUrl(settings.baseUrl()), body.length, tokenParam, settings.maxOutputTokens(), jsonMode);
         try {
-            return restClient.post()
+            ResponseEntity<String> response = restClient.post()
                     .uri(chatCompletionsUrl(settings.baseUrl()))
                     .contentType(MediaType.APPLICATION_JSON)
                     .headers(headers -> {
@@ -139,10 +160,15 @@ public class OpenAiCompatibleClient {
                     .onStatus(status -> true, (request, res) -> {
                     })
                     .toEntity(String.class);
+            log.debug("HTTP {} after {} ms ({} response chars)", response.getStatusCode().value(),
+                    elapsedMs(sent), response.getBody() == null ? 0 : response.getBody().length());
+            return response;
         } catch (ResourceAccessException ex) {
+            log.warn("No response from {} after {} ms: {}", settings.baseUrl(), elapsedMs(sent), ex.getMessage());
             throw new LlmException("Could not reach " + settings.baseUrl()
                     + " -- check the base URL is right and the server is running. (" + ex.getMessage() + ")", ex);
         } catch (RestClientException ex) {
+            log.warn("Exchange with {} broke after {} ms: {}", settings.baseUrl(), elapsedMs(sent), ex.getMessage());
             // The server accepted the connection but the exchange broke part-way, e.g. it
             // reset the connection instead of responding. Still the user's endpoint at fault,
             // so it must surface as an LlmException with a message, never as a bare 500.
