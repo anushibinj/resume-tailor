@@ -33,12 +33,19 @@ class FakeBackend {
   int _seq = 0;
   String _id(String prefix) => '$prefix${++_seq}';
 
-  http.Client get client => MockClient(_handle);
+  http.Client get client => MockClient((request) async {
+        try {
+          return await _handle(request);
+        } catch (error, stack) {
+          // A bug in the fake must not pass for "backend unreachable".
+          return _error(500, 'FakeBackend threw: $error\n$stack');
+        }
+      });
 
   // --- seeding helpers ---
 
   Json addResume({String name = 'Backend-leaning', bool isDefault = true, String format = 'MARKDOWN'}) {
-    final resume = {
+    final Json resume = {
       'id': _id('r'),
       'name': name,
       'format': format,
@@ -60,7 +67,7 @@ class FakeBackend {
   }
 
   Json addProfile({String name = 'OpenAI', bool isDefault = true}) {
-    final profile = {
+    final Json profile = {
       'id': _id('p'),
       'name': name,
       'baseUrl': 'https://api.openai.com/v1',
@@ -224,7 +231,7 @@ class FakeBackend {
         }
         return _json(_find(resumes, id));
       case ['resumes', final id, 'questions'] when method == 'POST':
-        final question = {
+        final Json question = {
           'id': _id('q'),
           'resumeId': id,
           'question': (body as Json)['question'],
