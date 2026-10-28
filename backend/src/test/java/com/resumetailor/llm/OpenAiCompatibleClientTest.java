@@ -111,6 +111,32 @@ class OpenAiCompatibleClientTest {
     }
 
     @Test
+    void remembersBothFallbacksSoLaterCallsAreASingleRequest() {
+        String url = "https://api.example.com/v1/chat/completions";
+        // First call pays for both discoveries: max_tokens rejected, then response_format rejected.
+        server.expect(once(), requestTo(url))
+                .andRespond(withBadRequest()
+                        .body("{\"error\": {\"message\": \"Use 'max_completion_tokens' instead.\"}}")
+                        .contentType(MediaType.APPLICATION_JSON));
+        server.expect(once(), requestTo(url))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"max_completion_tokens\"")))
+                .andRespond(withBadRequest()
+                        .body("{\"error\": {\"message\": \"Unknown parameter: response_format\"}}")
+                        .contentType(MediaType.APPLICATION_JSON));
+        // Every request after that -- the rest of this call and all of the next -- is the right one.
+        server.expect(twice(), requestTo(url))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"max_completion_tokens\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("response_format"))))
+                .andRespond(withSuccess(COMPLETION, MediaType.APPLICATION_JSON));
+
+        client.chat(settings(), "system", "user", true);
+        client.chat(settings(), "system", "user", true);
+
+        server.verify();
+    }
+
+    @Test
     void fallsBackToMaxTokensWhenAnEndpointRejectsMaxCompletionTokens() {
         String url = "https://api.example.com/v1/chat/completions";
         server.expect(once(), requestTo(url))

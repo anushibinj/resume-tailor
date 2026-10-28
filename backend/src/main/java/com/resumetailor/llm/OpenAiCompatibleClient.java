@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -48,6 +49,8 @@ public class OpenAiCompatibleClient {
     private final RestClient restClient;
     /** Which output-limit field each endpoint+model accepted, learned from earlier calls. */
     private final Map<String, String> tokenParamByEndpoint = new ConcurrentHashMap<>();
+    /** Endpoint+model pairs that rejected {@code response_format}; JSON mode is not attempted on them again. */
+    private final Set<String> noJsonModeEndpoints = ConcurrentHashMap.newKeySet();
 
     // Explicit @Autowired: the class has a second constructor for tests, and Spring will
     // not guess between two candidates.
@@ -74,6 +77,11 @@ public class OpenAiCompatibleClient {
     public LlmChatResult chat(LlmSettings settings, String systemPrompt, String userPrompt, boolean jsonMode) {
         String endpointKey = settings.baseUrl() + "|" + settings.model();
         String tokenParam = tokenParamByEndpoint.getOrDefault(endpointKey, MAX_TOKENS);
+        // A previous call learned this endpoint rejects response_format; skip the doomed request.
+        if (jsonMode && noJsonModeEndpoints.contains(endpointKey)) {
+            log.debug("Skipping JSON mode for {}: the endpoint rejected response_format earlier", endpointKey);
+            jsonMode = false;
+        }
         long started = System.nanoTime();
         int attempts = 1;
         log.info("LLM call starting: model={} jsonMode={} promptChars={} maxOutputTokens={} endpoint={}",
@@ -92,7 +100,10 @@ public class OpenAiCompatibleClient {
                 tokenParam = other;
                 attempts++;
                 response = post(settings, systemPrompt, userPrompt, jsonMode, tokenParam);
-                if (!response.getStatusCode().isError()) {
+                // Remember the field unless it was rejected too: a later failure (e.g.
+                // response_format) says nothing against it, and not remembering made every
+                // call repeat this retry.
+                if (!response.getStatusCode().isError() || otherTokenParam(tokenParam, response.getBody()) == null) {
                     tokenParamByEndpoint.put(endpointKey, tokenParam);
                 }
             }
@@ -102,6 +113,7 @@ public class OpenAiCompatibleClient {
             log.warn("Endpoint rejected response_format (HTTP {}); retrying without JSON mode -- this repeats the whole call",
                     response.getStatusCode().value());
             attempts++;
+            noJsonModeEndpoints.add(endpointKey);
             response = post(settings, systemPrompt, userPrompt, false, tokenParam);
         }
         if (response.getStatusCode().isError()) {
