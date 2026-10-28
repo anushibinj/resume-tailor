@@ -34,13 +34,13 @@ class FakeBackend {
   String _id(String prefix) => '$prefix${++_seq}';
 
   http.Client get client => MockClient((request) async {
-        try {
-          return await _handle(request);
-        } catch (error, stack) {
-          // A bug in the fake must not pass for "backend unreachable".
-          return _error(500, 'FakeBackend threw: $error\n$stack');
-        }
-      });
+    try {
+      return await _handle(request);
+    } catch (error, stack) {
+      // A bug in the fake must not pass for "backend unreachable".
+      return _error(500, 'FakeBackend threw: $error\n$stack');
+    }
+  });
 
   // --- seeding helpers ---
 

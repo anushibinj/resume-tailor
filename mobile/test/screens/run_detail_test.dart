@@ -193,10 +193,13 @@ void main() {
   });
 
   testWidgets('gap check states: outdated, failed, and no summary yet', (tester) async {
-    final h = await openSeededRun(tester, tweak: (_, run) {
-      run['gapsStatus'] = 'OUTDATED';
-      run['summary'] = {'status': 'NONE', 'error': null, 'selectedLines': null, 'variants': []};
-    });
+    final h = await openSeededRun(
+      tester,
+      tweak: (_, run) {
+        run['gapsStatus'] = 'OUTDATED';
+        run['summary'] = {'status': 'NONE', 'error': null, 'selectedLines': null, 'variants': []};
+      },
+    );
     expect(find.text('This run was made before summary lengths existed.'), findsOneWidget);
     expect(find.text('1 of 3 covered'), findsNothing);
     await tapText(tester, 'Requirements');
@@ -204,10 +207,13 @@ void main() {
     expect(find.text('Re-check with your model'), findsOneWidget);
     await h.dispose(tester);
 
-    final h2 = await openSeededRun(tester, tweak: (_, run) {
-      run['gapsStatus'] = 'FAILED';
-      run['gapsError'] = 'Fewer than half the requirements came back';
-    });
+    final h2 = await openSeededRun(
+      tester,
+      tweak: (_, run) {
+        run['gapsStatus'] = 'FAILED';
+        run['gapsError'] = 'Fewer than half the requirements came back';
+      },
+    );
     await tapText(tester, 'Requirements');
     expect(find.text("The check didn't finish."), findsOneWidget);
     expect(find.text('Fewer than half the requirements came back'), findsOneWidget);
