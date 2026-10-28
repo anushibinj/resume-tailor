@@ -193,6 +193,8 @@ export const api = {
         body: JSON.stringify({ status }),
       }),
     remove: (id: string) => request<void>(`/api/runs/${id}`, { method: "DELETE" }),
+    /** Redoes the whole run from its saved resume and posting; returns 202 and the page polls. */
+    rerun: (id: string) => request<RunDetail>(`/api/runs/${id}/rerun`, { method: "POST" }),
     recheckGaps: (id: string) => request<RunDetail>(`/api/runs/${id}/gaps`, { method: "POST" }),
     /** Instant: switches to a summary length that was already written. */
     selectSummary: (id: string, lines: number) =>

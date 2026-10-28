@@ -129,6 +129,12 @@ export default function RunPage() {
     onError: (error: unknown) => toast.error(describeError(error)),
   });
 
+  const rerun = useMutation({
+    mutationFn: () => api.runs.rerun(id),
+    onSuccess: (updated) => queryClient.setQueryData(["run", id], updated),
+    onError: (error: unknown) => toast.error(describeError(error)),
+  });
+
   const recheck = useMutation({
     mutationFn: () => api.runs.recheckGaps(id),
     onSuccess: (updated) => queryClient.setQueryData(["run", id], updated),
@@ -187,6 +193,16 @@ export default function RunPage() {
   const confirmDelete = () => {
     if (window.confirm("Delete this run? This removes its history, diff and any saved PDFs. This can't be undone.")) {
       remove.mutate();
+    }
+  };
+
+  const confirmRerun = () => {
+    if (
+      window.confirm(
+        "Run this again? This replaces the last run's data — the tailored resume, summary options, requirement check and any additions you accepted — with fresh results. Saved PDFs are kept, but a compiled PDF will be out of date until you recompile.",
+      )
+    ) {
+      rerun.mutate();
     }
   };
 
@@ -259,15 +275,23 @@ export default function RunPage() {
             </div>
           ) : null}
 
-          <Button
-            variant="danger"
-            onClick={confirmDelete}
-            disabled={remove.isPending}
-            aria-label="Delete run"
-          >
-            {remove.isPending ? <Spinner className="size-3.5" /> : <Trash2 className="size-4" />}
-            Delete
-          </Button>
+          <div className="flex items-center gap-2">
+            {!working ? (
+              <Button onClick={confirmRerun} disabled={rerun.isPending} aria-label="Run again">
+                {rerun.isPending ? <Spinner className="size-3.5" /> : <RefreshCw className="size-4" />}
+                Retry
+              </Button>
+            ) : null}
+            <Button
+              variant="danger"
+              onClick={confirmDelete}
+              disabled={remove.isPending}
+              aria-label="Delete run"
+            >
+              {remove.isPending ? <Spinner className="size-3.5" /> : <Trash2 className="size-4" />}
+              Delete
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -583,11 +607,7 @@ function FailureNotice({ message }: { message: string | null }) {
             <Link href="/settings" className="text-pencil underline underline-offset-2">
               Settings
             </Link>{" "}
-            and{" "}
-            <Link href="/tailor" className="text-pencil underline underline-offset-2">
-              run it again
-            </Link>
-            .
+            and use Retry above to run it again.
           </p>
         </div>
       </div>

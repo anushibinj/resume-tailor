@@ -274,6 +274,7 @@ filename is kept only to show back to you — downloads are always named from th
 | `GET` | `/api/runs/{id}` | Poll status, diff, requirement coverage, additions |
 | `DELETE` | `/api/runs/{id}` | Delete a run and its saved PDFs |
 | `PATCH` | `/api/runs/{id}/suggestions/{sid}` | Add / skip / remove an addition |
+| `POST` | `/api/runs/{id}/rerun` | Redo the whole run from its saved resume and posting, replacing its results (works on failed and completed runs) |
 | `POST` | `/api/runs/{id}/gaps` | Re-check the requirements with your model |
 | `PUT` | `/api/runs/{id}/summary` | Choose a summary length (`{"lines": 4-7}`); instant, no model call |
 | `POST` | `/api/runs/{id}/summary` | Write the summary lengths (again); 202, the page polls |
