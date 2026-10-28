@@ -33,7 +33,7 @@ Future<bool> confirmAndDeleteRun(BuildContext context, WidgetRef ref, String id,
   final label = role != null ? 'the run for $role' : 'this run';
   final confirmed = await confirmDestructive(
     context,
-    "Delete $label? This removes its history, diff and any compiled PDF. This can't be undone.",
+    "Delete $label? This removes its history, diff and any saved PDFs. This can't be undone.",
   );
   if (!confirmed) return false;
   try {
