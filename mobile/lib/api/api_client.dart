@@ -217,6 +217,9 @@ class ApiClient {
 
   Future<void> deleteRun(String id) async => _json('DELETE', '/api/runs/$id');
 
+  /// Redoes the whole run from its saved resume and posting; returns 202 and the screen polls.
+  Future<RunDetail> rerun(String id) async => RunDetail.fromJson(await _object('POST', '/api/runs/$id/rerun'));
+
   Future<RunDetail> recheckGaps(String id) async => RunDetail.fromJson(await _object('POST', '/api/runs/$id/gaps'));
 
   /// Instant: switches to a summary length that was already written.
