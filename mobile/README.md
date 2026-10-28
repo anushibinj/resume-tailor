@@ -3,7 +3,7 @@
 A Flutter client for Android and iOS with the same features as the web frontend in
 `../frontend`: Google sign-in, the resume library, tailoring a resume to a posting, the
 review screen (section diff, requirements and one-tap additions, summary length, final
-source, export), asking about a resume, run history and model settings.
+source, export, saved PDFs), asking about a resume, run history and model settings.
 
 It talks to the same Spring Boot backend, directly, with the same JSON API. The backend
 needed no changes.
@@ -65,6 +65,7 @@ reopening the app restores the session; any 401 drops it and returns to sign-in.
 | Run page's requirements sidebar | A *Requirements* tab beside Review edits / Final source / Job description |
 | Hover for evidence and skill descriptions | Tap |
 | Browser download of `.tex` / `.md` / PDF | The system share sheet (save to Files / Drive, open in a viewer) |
+| "Saved PDFs" panel in the run page's sidebar | The same panel above the tabs; *Upload PDF* opens the system file picker |
 | `window.confirm` | A confirmation dialog, same wording |
 | TanStack Query cache + polling | Riverpod providers; a run polls every 2s while any work is outstanding |
 
