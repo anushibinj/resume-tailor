@@ -27,6 +27,9 @@ class FakeBackend {
   final List<String> log = [];
   bool pdfEnabled = true;
 
+  /// Saved PDFs per run id: 'compiled' and 'uploaded', each with its bytes and metadata.
+  final Map<String, Map<String, ({List<int> bytes, String? filename})>> storedPdfs = {};
+
   /// When set, every authenticated call answers 401, as an expired session would.
   bool expireSession = false;
 
@@ -193,7 +196,8 @@ class FakeBackend {
     final path = request.url.path;
     final method = request.method;
     log.add('$method ${request.url.path}${request.url.hasQuery ? '?${request.url.query}' : ''}');
-    final body = request.body.isEmpty ? null : jsonDecode(request.body);
+    final isJson = request.headers['Content-Type']?.startsWith('application/json') ?? false;
+    final body = isJson && request.body.isNotEmpty ? jsonDecode(request.body) : null;
 
     if (path == '/api/auth/google' && method == 'POST') {
       if ((body as Json)['idToken'] != 'google-id-token') return _error(400, 'Invalid Google sign-in token');
@@ -316,12 +320,31 @@ class FakeBackend {
           200,
           headers: {'content-type': 'text/markdown', 'content-disposition': 'attachment; filename="resume-acme.md"'},
         );
-      case ['runs', _, 'pdf'] when method == 'POST':
-        return http.Response(
-          '%PDF-1.7',
-          200,
-          headers: {'content-type': 'application/pdf', 'content-disposition': 'attachment; filename="resume-acme.pdf"'},
-        );
+      case ['runs', final id, 'pdf'] when method == 'POST':
+        // Compiling also keeps a copy, replacing the last one.
+        (storedPdfs[id] ??= {})['compiled'] = (bytes: utf8.encode('%PDF-1.7 compiled'), filename: null);
+        return _pdf('%PDF-1.7', 'resume-acme.pdf');
+      case ['runs', final id, 'pdf'] when method == 'GET':
+        final compiled = storedPdfs[id]?['compiled'];
+        if (compiled == null) return _error(404, 'No PDF has been compiled for this run');
+        return _pdf(utf8.decode(compiled.bytes), 'resume-acme.pdf');
+      case ['runs', final id, 'pdfs'] when method == 'GET':
+        return _json(_storedPdfs(id));
+      case ['runs', final id, 'pdfs', 'uploaded'] when method == 'PUT':
+        final bytes = request.bodyBytes;
+        if (bytes.isEmpty) return _error(400, 'The uploaded file is empty.');
+        if (!utf8.decode(bytes, allowMalformed: true).startsWith('%PDF-')) {
+          return _error(400, 'That file is not a PDF.');
+        }
+        (storedPdfs[id] ??= {})['uploaded'] = (bytes: bytes, filename: request.url.queryParameters['filename']);
+        return _json(_storedPdfs(id));
+      case ['runs', final id, 'pdfs', 'uploaded'] when method == 'GET':
+        final uploaded = storedPdfs[id]?['uploaded'];
+        if (uploaded == null) return _error(404, 'No PDF has been uploaded for this run');
+        return _pdf(utf8.decode(uploaded.bytes, allowMalformed: true), uploaded.filename ?? 'uploaded.pdf');
+      case ['runs', final id, 'pdfs', 'uploaded'] when method == 'DELETE':
+        storedPdfs[id]?.remove('uploaded');
+        return _json(_storedPdfs(id));
     }
     return _error(404, 'No route for $method $path');
   }
@@ -340,6 +363,22 @@ class FakeBackend {
         if ((run['summary'] as Json)['status'] == 'RUNNING') (run['summary'] as Json)['status'] = 'COMPLETED';
     }
   }
+
+  Json _storedPdfs(String runId) {
+    Json? describe(String kind) {
+      final pdf = storedPdfs[runId]?[kind];
+      if (pdf == null) return null;
+      return {'sizeBytes': pdf.bytes.length, 'originalFilename': pdf.filename, 'storedAt': _now};
+    }
+
+    return {'compiled': describe('compiled'), 'uploaded': describe('uploaded')};
+  }
+
+  http.Response _pdf(String content, String filename) => http.Response(
+    content,
+    200,
+    headers: {'content-type': 'application/pdf', 'content-disposition': 'attachment; filename="$filename"'},
+  );
 
   Json _find(List<Json> items, String id) => items.firstWhere((item) => item['id'] == id);
 

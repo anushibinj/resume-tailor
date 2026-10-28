@@ -8,6 +8,7 @@ import 'package:resume_tailor/state/google_auth.dart';
 import 'package:resume_tailor/state/providers.dart';
 import 'package:resume_tailor/theme/app_theme.dart';
 import 'package:resume_tailor/util/file_share.dart';
+import 'package:resume_tailor/util/pdf_picker.dart';
 
 import 'fake_backend.dart';
 
@@ -35,6 +36,14 @@ class FakeFileSharer implements FileSharer {
   Future<void> share(DownloadedFile file) async => shared.add(file);
 }
 
+/// Hands back whatever the test queued, as if the user had chosen it; null = backed out.
+class FakePdfPicker implements PdfPicker {
+  PickedPdf? next;
+
+  @override
+  Future<PickedPdf?> pick() async => next;
+}
+
 class Harness {
   Harness({this.signedIn = true, this.tall = true}) : tokens = MemoryTokenStore(signedIn ? FakeBackend.token : null);
 
@@ -44,6 +53,7 @@ class Harness {
   final MemoryTokenStore tokens;
   final FakeGoogleAuth google = FakeGoogleAuth();
   final FakeFileSharer sharer = FakeFileSharer();
+  final FakePdfPicker pdfPicker = FakePdfPicker();
 
   Future<void> pump(WidgetTester tester) async {
     AppFonts.useGoogleFonts = false;
@@ -63,6 +73,7 @@ class Harness {
           ),
           googleAuthProvider.overrideWithValue(google),
           fileSharerProvider.overrideWithValue(sharer),
+          pdfPickerProvider.overrideWithValue(pdfPicker),
         ],
         retry: (_, _) => null,
         child: const ResumeTailorApp(),
