@@ -393,7 +393,8 @@ promote a user by hand (`UPDATE users SET role = 'ADMIN' WHERE email = '...'`).
 
 `mobile/` is a Flutter client for Android and iOS with the same features as the web
 frontend: sign-in, resumes, tailoring, the review screen with requirements and one-tap
-additions, the summary length slider, export, Ask and History, and model settings. It calls
+additions, the summary length slider, export and saved PDFs, Ask and History, and model
+settings. It calls
 the backend directly, like the web client, using the same endpoints.
 
 ```bash
