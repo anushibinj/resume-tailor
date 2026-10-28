@@ -98,7 +98,7 @@ class KeywordMargin extends StatelessWidget {
           ),
           child: Text(
             'Checked by ${modelUsed ?? 'your model'}. Tap anything covered to see the line of your '
-            'resume it read that from, or a missing skill\'s ⓘ to see what it means.',
+            'resume it read that from, or the help icon by a missing skill to see what it means.',
             style: TextStyle(fontSize: 12, height: 1.5, color: p.inkSoft),
           ),
         ),
