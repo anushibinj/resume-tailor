@@ -602,13 +602,13 @@ class CreateRunRequest {
       };
 }
 
-class Page<T> {
-  const Page({required this.content, required this.totalElements});
+class PageOf<T> {
+  const PageOf({required this.content, required this.totalElements});
 
   final List<T> content;
   final int totalElements;
 
-  factory Page.fromJson(Json json, T Function(Json) item) => Page(
+  factory PageOf.fromJson(Json json, T Function(Json) item) => PageOf(
         content: _list(json['content']).map(item).toList(),
         totalElements: _int(json['totalElements']) ?? 0,
       );

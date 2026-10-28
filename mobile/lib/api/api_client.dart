@@ -165,8 +165,8 @@ class ApiClient {
         await _object('POST', '/api/resumes/$resumeId/questions', body: {'question': question}),
       );
 
-  Future<Page<ResumeQuestion>> questionHistory(String resumeId, {int page = 0, int size = 50}) async =>
-      Page.fromJson(
+  Future<PageOf<ResumeQuestion>> questionHistory(String resumeId, {int page = 0, int size = 50}) async =>
+      PageOf.fromJson(
         await _object('GET', '/api/resumes/$resumeId/questions?page=$page&size=$size'),
         ResumeQuestion.fromJson,
       );
@@ -195,8 +195,8 @@ class ApiClient {
 
   // --- runs ---
 
-  Future<Page<RunSummary>> listRuns({int page = 0, int size = 20}) async =>
-      Page.fromJson(await _object('GET', '/api/runs?page=$page&size=$size'), RunSummary.fromJson);
+  Future<PageOf<RunSummary>> listRuns({int page = 0, int size = 20}) async =>
+      PageOf.fromJson(await _object('GET', '/api/runs?page=$page&size=$size'), RunSummary.fromJson);
 
   Future<RunDetail> getRun(String id) async => RunDetail.fromJson(await _object('GET', '/api/runs/$id'));
 
