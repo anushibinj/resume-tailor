@@ -12,6 +12,11 @@ flowchart TB
         ask["/ask<br/>one question per resume · answer history (deletable)<br/>next action is always 'ask another in a new chat'"]
     end
 
+    subgraph phone["Phone — Flutter (mobile/), Android + iOS"]
+        msignin["sign-in gate<br/>native Google account picker<br/>serverClientId = the Web client ID"]
+        mapp["same features as the browser<br/>Home · Tailor · Resumes · Ask · History · Settings<br/>run review: diff · requirements tab · summary slider · share-sheet export"]
+    end
+
     subgraph api["Spring Boot (:8080)"]
         direction TB
         authctrl["AuthController<br/>POST /api/auth/google<br/>verify token → find-or-create user → issue app JWT"]
@@ -49,6 +54,9 @@ flowchart TB
     authctrl -- "find-or-create, RBAC role NORMAL_USER on first sign-in" --> db
     authctrl -- "app JWT" --> signin
 
+    msignin -- "ID token (same audience)" --> authctrl
+    authctrl -- "app JWT (platform keystore)" --> msignin
+    mapp -- "same REST API, Bearer app JWT<br/>run polled every 2s while working" --> jwtfilter
     settings -- "Authorization: Bearer <app JWT>" --> jwtfilter
     resumes --> jwtfilter
     tailor --> jwtfilter
