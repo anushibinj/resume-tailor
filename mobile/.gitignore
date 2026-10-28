@@ -50,3 +50,6 @@ app.*.map.json
 # Local build-time config passed with --dart-define-from-file (see .env.example).
 .env
 *.iml
+
+# Gradle output from building the Android app.
+/android/build/
