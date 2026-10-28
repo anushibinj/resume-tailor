@@ -25,3 +25,10 @@ String formatRelative(String? value, {DateTime? now}) {
 
 /// Thousands separators, like `Number.toLocaleString()` on the web.
 String formatCount(int value) => NumberFormat.decimalPattern().format(value);
+
+/// "512 B", "38 KB", "1.4 MB" -- the same buckets as the web client's `formatBytes`.
+String formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).round()} KB';
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}

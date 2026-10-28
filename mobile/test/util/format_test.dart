@@ -16,4 +16,10 @@ void main() {
     expect(formatDate(null), '—');
     expect(formatDate('garbage'), '—');
   });
+
+  test('formatBytes uses B, KB and MB like the web client', () {
+    expect(formatBytes(512), '512 B');
+    expect(formatBytes(38 * 1024), '38 KB');
+    expect(formatBytes(1468006), '1.4 MB');
+  });
 }
