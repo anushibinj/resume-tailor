@@ -16,9 +16,10 @@ its user.
   continue. Both are mandatory:
   - backend — `cd backend && mvn clean test`
   - frontend — `cd frontend && pnpm lint && pnpm build`
+  - mobile — `cd mobile && flutter analyze && flutter test` (needs no backend or device)
 - Always update these when a change affects docs, environment variables or architecture:
   - `README.md`
-  - `backend/.env.example` and `frontend/.env.example`
+  - `backend/.env.example`, `frontend/.env.example` and `mobile/.env.example`
   - `product-architecture-flowchart.mmd`
 - Before a code change: read `product-architecture-flowchart.mmd` and `README.md`,
   decide whether backend, frontend or both are affected, and do backend first.
@@ -128,7 +129,14 @@ them.
 backend/    Spring Boot 3.5.5, Java 17, Maven, feature-based packages
 frontend/   Next.js 15 App Router, React 19, Tailwind v4, TanStack Query
 docker/tex/ Dockerfile for the sandboxed TeX + pandoc image
+mobile/     Flutter (Android + iOS) client with the web frontend's features, Riverpod
 ```
+
+The mobile app is a second client of the same API, not a separate product: a feature
+added to `frontend/` belongs in `mobile/` too, and its DTOs (`mobile/lib/api/models.dart`)
+mirror `frontend/src/lib/types.ts`. When an endpoint changes, update both clients and
+`mobile/test/support/fake_backend.dart`, which the widget tests run against. Lazy loading
+with `next/dynamic` (see Gotchas) is a web convention and has no mobile counterpart.
 
 Backend packages under `com.resumetailor` are organised by **feature**, not by layer:
 
