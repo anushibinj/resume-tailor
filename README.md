@@ -22,6 +22,8 @@ model's — including a keyword you want purely to get past an ATS.
   questions are kept per resume so you can look back at what you asked, and delete any
   you no longer want. Answers are written in your own first-person voice ("My core
   experience lies in...") so you can paste them straight into an application or email.
+- **On your phone too.** A Flutter app for Android and iOS (`mobile/`) has every feature
+  of the web app and talks to the same backend — see [Mobile app](#mobile-app).
 
 ---
 
@@ -34,6 +36,7 @@ model's — including a keyword you want purely to get past an ATS.
 | Node | 22 |
 | pnpm | 10 |
 | Docker Desktop | any recent — must be **running** |
+| Flutter | stable, Dart 3.13+ — only for the mobile app |
 
 ## Setup
 
@@ -294,10 +297,18 @@ That adds two test classes, both needing Docker running:
 cd frontend && pnpm lint && pnpm build
 ```
 
+```bash
+cd mobile && flutter analyze && flutter test
+```
+
+The mobile widget tests drive every screen against an in-memory fake of the API
+(`mobile/test/support/fake_backend.dart`), so they need neither the backend nor a device.
+
 ## Configuration
 
 Everything lives in `backend/.env` (see `backend/.env.example` for the full list with
-comments) and `frontend/.env.local`.
+comments) and `frontend/.env.local` — plus `mobile/.env` for the mobile app (see
+`mobile/.env.example`).
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -343,9 +354,34 @@ public keys, finds or creates the user, and returns the app's own session token
 (a JWT, `JWT_SECRET`-signed), which the frontend then sends as `Authorization: Bearer`
 on every other request. The backend never re-verifies a Google token per request.
 
+**The mobile app** signs in with the phone's own Google account picker and passes the
+same Web client ID as `serverClientId`, so its ID tokens carry the audience the backend
+already verifies — nothing changes on the backend. It additionally needs an *Android*
+OAuth client (package name + signing SHA-1) and, for iOS, an *iOS* OAuth client in the same
+Cloud project; `mobile/README.md` has the steps.
+
 **RBAC:** every user created this way starts as `NORMAL_USER`. `ORG_ADMIN` and `ADMIN`
 exist on the `Role` enum for future admin features but nothing assigns them yet — for now
 promote a user by hand (`UPDATE users SET role = 'ADMIN' WHERE email = '...'`).
+
+## Mobile app
+
+`mobile/` is a Flutter client for Android and iOS with the same features as the web
+frontend: sign-in, resumes, tailoring, the review screen with requirements and one-tap
+additions, the summary length slider, export, Ask and History, and model settings. It calls
+the backend directly, like the web client, using the same endpoints.
+
+```bash
+cd mobile
+cp .env.example .env          # API_BASE_URL, GOOGLE_SERVER_CLIENT_ID (= GOOGLE_CLIENT_ID)
+flutter pub get
+flutter run --dart-define-from-file=.env
+```
+
+On the Android emulator the backend's `localhost:8080` is `10.0.2.2:8080`, which is the
+default; a physical phone needs your computer's LAN address in `API_BASE_URL`. Exports
+open the system share sheet rather than downloading. See `mobile/README.md` for Google
+Sign-In setup and how each web feature maps onto the phone.
 
 ## Troubleshooting
 
