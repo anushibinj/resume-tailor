@@ -175,7 +175,7 @@ void main() {
     await h.dispose(tester);
   });
 
-  testWidgets('a failed run explains itself and links to settings and tailor', (tester) async {
+  testWidgets('a failed run explains itself and can be retried', (tester) async {
     final h = Harness();
     h.backend.addResume();
     h.backend.addProfile();
@@ -187,8 +187,34 @@ void main() {
     expect(find.text("This run didn't finish"), findsOneWidget);
     expect(find.text('The model returned no content'), findsOneWidget);
     expect(find.text('.md'), findsNothing);
-    await tapText(tester, 'run it again');
-    expect(find.text('Tailor to a posting'), findsWidgets);
+    expect(find.textContaining('use Retry'), findsOneWidget);
+
+    // Retry runs it again from the saved resume and posting, after a warning.
+    await tester.tap(find.byTooltip('Run again'));
+    await settle(tester);
+    expect(find.textContaining("This replaces the last run's data"), findsOneWidget);
+    await tapText(tester, 'Run again');
+    expect(h.backend.log, contains('POST /api/runs/${run['id']}/rerun'));
+    expect(find.text('Queued…'), findsOneWidget);
+    expect(find.byTooltip('Run again'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 2));
+    await settle(tester);
+    await tester.pump(const Duration(seconds: 2));
+    await settle(tester);
+    expect(find.text("This run didn't finish"), findsNothing);
+    expect(find.text('Summary length'), findsOneWidget);
+    expect(find.byTooltip('Run again'), findsOneWidget);
+    await h.dispose(tester);
+  });
+
+  testWidgets('cancelling Retry leaves the run as it was', (tester) async {
+    final h = await openSeededRun(tester);
+    await tester.tap(find.byTooltip('Run again'));
+    await settle(tester);
+    await tapText(tester, 'Cancel');
+    expect(h.backend.log.where((l) => l.endsWith('/rerun')), isEmpty);
+    expect(find.text('Summary length'), findsOneWidget);
     await h.dispose(tester);
   });
 
