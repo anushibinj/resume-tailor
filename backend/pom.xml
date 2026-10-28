@@ -20,6 +20,7 @@
         <google-api-client.version>2.7.2</google-api-client.version>
         <jjwt.version>0.12.6</jjwt.version>
         <flexmark.version>0.64.8</flexmark.version>
+        <aws-sdk.version>2.55.16</aws-sdk.version>
     </properties>
     <dependencies>
         <dependency>
@@ -104,6 +105,20 @@
                 <exclusion>
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- STORAGE_TYPE=s3: keeps compiled and uploaded PDFs in S3 or an S3-compatible server. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${aws-sdk.version}</version>
+            <exclusions>
+                <!-- Only the synchronous client is used; the async Netty transport is dead weight. -->
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

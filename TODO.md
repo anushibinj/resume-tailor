@@ -35,6 +35,14 @@ decisions stays readable.
       Android / iOS OAuth clients from `mobile/README.md`, which only you can create, and
       the iOS build needs a Mac with Xcode. Sign in, tailor a posting and export a PDF on
       a device.
+- [ ] **`SchemaValidationIT` after `V7__stored_pdfs.sql`.** The migration renames
+      `artifacts.file_path` to `storage_key`, widens the `kind` check to `UPLOADED_PDF` and
+      adds `original_filename`. It was written without Docker available, so run
+      `mvn verify -Pintegration` once to prove Flyway and the `Artifact` entity agree — in
+      particular that Postgres named the original inline check `artifacts_kind_check`.
+- [ ] **S3 storage against a real bucket.** `S3FileStorage` is unit-tested against a mocked
+      client only. Try `STORAGE_TYPE=s3` with MinIO (`S3_ENDPOINT=http://localhost:9000`,
+      `S3_PATH_STYLE_ACCESS=true`) or AWS: compile, upload, download, delete a run.
 
 ## v2 — multi-user
 

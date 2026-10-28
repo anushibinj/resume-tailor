@@ -30,6 +30,11 @@ const SummaryLength = dynamic(
   () => import("@/components/summary-length").then((mod) => mod.SummaryLength),
   { loading: () => <SummaryLengthSkeleton /> },
 );
+// Only shown once the run has completed, and carries its own query and upload handling.
+const StoredPdfs = dynamic(
+  () => import("@/components/stored-pdfs").then((mod) => mod.StoredPdfs),
+  { loading: () => <StoredPdfsSkeleton /> },
+);
 
 type Tab = "review" | "source" | "posting";
 
@@ -161,7 +166,11 @@ export default function RunPage() {
 
   const exportPdf = useMutation({
     mutationFn: () => api.runs.compilePdf(id),
-    onSuccess: () => toast.success("PDF compiled"),
+    onSuccess: () => {
+      toast.success("PDF compiled");
+      // The compile also replaced the stored copy shown in the "Saved PDFs" panel.
+      queryClient.invalidateQueries({ queryKey: ["stored-pdfs", id] });
+    },
     onError: (error: Error) => toast.error(error.message),
   });
 
@@ -176,7 +185,7 @@ export default function RunPage() {
   });
 
   const confirmDelete = () => {
-    if (window.confirm("Delete this run? This removes its history, diff and any compiled PDF. This can't be undone.")) {
+    if (window.confirm("Delete this run? This removes its history, diff and any saved PDFs. This can't be undone.")) {
       remove.mutate();
     }
   };
@@ -328,6 +337,11 @@ export default function RunPage() {
                 addingAll={addAllMissing.isPending}
                 isAddingSkill={isAddingSkill}
               />
+            </Panel>
+
+            <Panel className="p-5">
+              <h2 className="mb-4 font-serif text-lg text-ink">Saved PDFs</h2>
+              <StoredPdfs runId={id} pdfEnabled={pdf.data?.enabled !== false} />
             </Panel>
 
             {data.promptTokens ? (
@@ -523,6 +537,20 @@ function SummaryLengthSkeleton() {
     <div className="space-y-3 rounded-sm border border-rule bg-surface p-4">
       <Skeleton className="h-4 w-32" />
       <Skeleton className="h-4 w-full" />
+    </div>
+  );
+}
+
+/** Approximates the two rows `StoredPdfs` renders once loaded. */
+function StoredPdfsSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[0, 1].map((i) => (
+        <div key={i} className="space-y-1.5">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-4 w-full" />
+        </div>
+      ))}
     </div>
   );
 }

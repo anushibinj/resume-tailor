@@ -8,7 +8,7 @@ flowchart TB
         settings["/settings<br/>model connections"]
         resumes["/resumes<br/>base resume library"]
         tailor["/tailor<br/>paste a posting"]
-        runview["run detail & history<br/>job listing link · diff · requirement coverage · additions<br/>summary length slider (4-7 lines, instant switch)"]
+        runview["run detail & history<br/>job listing link · diff · requirement coverage · additions<br/>summary length slider (4-7 lines, instant switch)<br/>saved PDFs: last compiled + your own upload"]
         ask["/ask<br/>one question per resume · answer history (deletable)<br/>next action is always 'ask another in a new chat'"]
     end
 
@@ -44,10 +44,11 @@ flowchart TB
         splice["AdditionApplier<br/>applies only ACCEPTED additions<br/>anchored · insert-only"]
     end
 
-    db[("Postgres<br/>users · resumes · job_descriptions<br/>tailoring_runs (+ summary options as JSON) · run_keywords<br/>run_suggestions · llm_profiles<br/>resume_questions (question/answer history, flat -- not a conversation)<br/>skill_definitions (shared by all users)")]
+    db[("Postgres<br/>users · resumes · job_descriptions<br/>tailoring_runs (+ summary options as JSON) · run_keywords<br/>artifacts (storage keys of saved PDFs)<br/>run_suggestions · llm_profiles<br/>resume_questions (question/answer history, flat -- not a conversation)<br/>skill_definitions (shared by all users)")]
     llm["Your LLM<br/>OpenAI-compatible<br/>/chat/completions"]
     tex["docker run resume-tailor-tex<br/>(LaTeX PDF export)<br/>--network none · -no-shell-escape<br/>memory + time capped"]
     flexmark["flexmark-pdf-converter<br/>(Markdown PDF export)<br/>in-process HTML + CSS to PDF"]
+    storage[("FileStorage (STORAGE_TYPE)<br/>local directory or S3 bucket<br/>users/{owner}/runs/{run}/compiled.pdf · uploaded.pdf")]
 
     signin -- "ID token" --> authctrl
     authctrl -- "verify against Google's public keys" --> google
@@ -87,8 +88,12 @@ flowchart TB
     db --> pick --> rebuild --> splice --> runview
     splice -- "export PDF (LaTeX)" --> tex --> runview
     splice -- "export PDF (Markdown)" --> flexmark --> runview
+    tex -- "compiled PDF kept" --> storage
+    flexmark -- "compiled PDF kept" --> storage
+    runview -- "PUT /api/runs/{id}/pdfs/uploaded<br/>raw PDF body, size-capped, %PDF- checked" --> storage
+    storage -- "download / list saved PDFs" --> runview
 
     classDef guard fill:#e4ecf5,stroke:#2f5d8c,color:#1d2b2f;
     classDef external fill:#f5efdf,stroke:#8a6d2b,color:#1d2b2f;
     class owner,jwtfilter,gaps,summary,splice,qa,flexmark guard;
-    class llm,tex,google external;
+    class llm,tex,google,storage external;

@@ -131,7 +131,10 @@ docker compose up --build
    inside your existing lists and can be removed again at any point.
    The **Summary length** slider above the diff sets how long the summary is, from about 4
    to 7 lines. Every length is written up front, so moving the slider is instant.
-6. **Export** — download the `.tex`/`.md`, or compile a PDF.
+6. **Export** — download the `.tex`/`.md`, or compile a PDF. Converted the source to PDF
+   yourself instead (say, the `.md` through your own tool)? **Saved PDFs** on the run page
+   lets you upload it, so it's kept with the run alongside the last PDF compiled here.
+   Both are stored in the configured storage — a local directory or an S3 bucket.
 7. **Ask** — pick a resume and ask it a single question ("Briefly tell about my core
    experience and technical strengths"). The answer comes back in one response; asking
    again starts a new question rather than continuing a conversation. Every question you've
@@ -248,6 +251,18 @@ LaTeX is a full programming language that can read and write files, and the mark
 compiled was written by an LLM moments earlier. Each build runs in a throwaway container
 with no network, no shell escape, a memory cap and a hard timeout.
 
+### Where PDFs are kept
+
+Each run keeps at most two PDFs: the last one compiled here (recompiling replaces it) and
+one you uploaded (uploading again replaces it). Neither replaces the other. They live in
+the storage `STORAGE_TYPE` picks — `local` (a directory, `STORAGE_LOCAL_PATH`) or `s3`
+(AWS or any S3-compatible server such as MinIO or R2) — under
+`users/{owner}/runs/{run}/compiled.pdf` and `…/uploaded.pdf`. Deleting a run deletes both.
+
+An upload is sent as the raw PDF body, not multipart, and is read no further than
+`UPLOAD_PDF_MAX_SIZE`; anything that doesn't start with `%PDF-` is refused. Its original
+filename is kept only to show back to you — downloads are always named from the run.
+
 ## API
 
 | Method | Path | Purpose |
@@ -260,13 +275,16 @@ with no network, no shell escape, a memory cap and a hard timeout.
 | `POST` | `/api/runs` | Start a tailoring run (202 + run id) |
 | `GET` | `/api/runs` | History, paginated |
 | `GET` | `/api/runs/{id}` | Poll status, diff, requirement coverage, additions |
-| `DELETE` | `/api/runs/{id}` | Delete a run and its compiled PDF |
+| `DELETE` | `/api/runs/{id}` | Delete a run and its saved PDFs |
 | `PATCH` | `/api/runs/{id}/suggestions/{sid}` | Add / skip / remove an addition |
 | `POST` | `/api/runs/{id}/gaps` | Re-check the requirements with your model |
 | `PUT` | `/api/runs/{id}/summary` | Choose a summary length (`{"lines": 4-7}`); instant, no model call |
 | `POST` | `/api/runs/{id}/summary` | Write the summary lengths (again); 202, the page polls |
 | `GET` | `/api/runs/{id}/export` | Download the tailored `.tex` / `.md` |
 | `POST/GET` | `/api/runs/{id}/pdf` | Compile / download the PDF |
+| `GET` | `/api/runs/{id}/pdfs` | The PDFs saved with the run (compiled, uploaded) |
+| `PUT` | `/api/runs/{id}/pdfs/uploaded?filename=` | Upload your own PDF (raw `application/pdf` body) |
+| `GET/DELETE` | `/api/runs/{id}/pdfs/uploaded` | Download / remove the uploaded PDF |
 | `GET/POST` | `/api/llm-profiles` | Manage model connections |
 | `POST` | `/api/llm-profiles/{id}/test` | Check the endpoint responds |
 | `POST` | `/api/resumes/{id}/questions` | Ask a single-shot question about a resume (answers synchronously) |
@@ -322,6 +340,13 @@ comments) and `frontend/.env.local` — plus `mobile/.env` for the mobile app (s
 | `PDF_ENABLED` | `true` | `false` hides PDF export; source download still works |
 | `TEX_IMAGE` | `resume-tailor-tex` | Image built from `docker/tex` |
 | `PDF_TIMEOUT_SECONDS` | `120` | Hard cap on a compile |
+| `STORAGE_TYPE` | `local` | Where compiled and uploaded PDFs are kept: `local` or `s3` |
+| `STORAGE_LOCAL_PATH` | `./artifacts` | Directory for `local` storage (formerly `PDF_ARTIFACT_PATH`, still read) |
+| `UPLOAD_PDF_MAX_SIZE` | `10MB` | Largest PDF a user may upload for a run |
+| `S3_BUCKET` | — | **Required when `STORAGE_TYPE=s3`** |
+| `S3_REGION` / `S3_ENDPOINT` / `S3_PATH_STYLE_ACCESS` | `us-east-1` / AWS / `false` | Set the endpoint and path-style for MinIO, R2, B2 |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | — | Both or neither; neither uses the AWS default credential chain |
+| `S3_KEY_PREFIX` | — | Prepended to every object key |
 | `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8080` | Frontend → backend |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | — | **Required.** Same value as `GOOGLE_CLIENT_ID` |
 
