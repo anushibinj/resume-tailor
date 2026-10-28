@@ -304,6 +304,16 @@ class FakeBackend {
           if (s['id'] == sid) s['status'] = status;
         }
         return _json(run);
+      case ['runs', final id, 'rerun']:
+        final run = runs[id]!;
+        if (run['status'] == 'PENDING' || run['status'] == 'RUNNING') {
+          return _error(400, 'This run is already in progress');
+        }
+        // Back to the start; the next polls walk it through RUNNING to a fresh result.
+        run
+          ..['status'] = 'PENDING'
+          ..['errorMessage'] = null;
+        return _json(run, 202);
       case ['runs', final id, 'gaps']:
         return _json(runs[id]!..['gapsStatus'] = 'RUNNING', 202);
       case ['runs', final id, 'summary'] when method == 'PUT':
