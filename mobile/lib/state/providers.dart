@@ -135,7 +135,9 @@ final themeModeProvider = NotifierProvider<ThemeModeController, ThemeMode>(Theme
 
 // --- navigation ---
 
-enum ShellTab { home, tailor, resumes, ask, history, settings }
+/// The bottom navigation. Settings is not a tab: like most phone apps it opens from the
+/// gear in the app bar (see `openSettings`), which keeps the bar at five destinations.
+enum ShellTab { home, tailor, resumes, ask, history }
 
 class ShellTabController extends Notifier<ShellTab> {
   @override
