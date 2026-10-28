@@ -135,13 +135,30 @@ extension PaletteContext on BuildContext {
   Palette get palette => Theme.of(this).extension<Palette>()!;
 }
 
+/// google_fonts' own `*TextTheme` helpers are typed against the decoupled `material_ui`
+/// package, not `flutter/material`, so each style is mapped through [AppFonts.sans] here.
+TextTheme _sansTextTheme(TextTheme t) => TextTheme(
+      displayLarge: AppFonts.sans(t.displayLarge),
+      displayMedium: AppFonts.sans(t.displayMedium),
+      displaySmall: AppFonts.sans(t.displaySmall),
+      headlineLarge: AppFonts.sans(t.headlineLarge),
+      headlineMedium: AppFonts.sans(t.headlineMedium),
+      headlineSmall: AppFonts.sans(t.headlineSmall),
+      titleLarge: AppFonts.sans(t.titleLarge),
+      titleMedium: AppFonts.sans(t.titleMedium),
+      titleSmall: AppFonts.sans(t.titleSmall),
+      bodyLarge: AppFonts.sans(t.bodyLarge),
+      bodyMedium: AppFonts.sans(t.bodyMedium),
+      bodySmall: AppFonts.sans(t.bodySmall),
+      labelLarge: AppFonts.sans(t.labelLarge),
+      labelMedium: AppFonts.sans(t.labelMedium),
+      labelSmall: AppFonts.sans(t.labelSmall),
+    );
+
 ThemeData buildTheme(Brightness brightness) {
   final p = brightness == Brightness.dark ? Palette.dark : Palette.light;
   final base = ThemeData(brightness: brightness, useMaterial3: true);
-  final textTheme = (AppFonts.useGoogleFonts
-          ? GoogleFonts.instrumentSansTextTheme(base.textTheme)
-          : base.textTheme)
-      .apply(bodyColor: p.ink, displayColor: p.ink);
+  final textTheme = _sansTextTheme(base.textTheme).apply(bodyColor: p.ink, displayColor: p.ink);
 
   const radius = BorderRadius.all(Radius.circular(2));
   OutlineInputBorder border(Color color) =>
