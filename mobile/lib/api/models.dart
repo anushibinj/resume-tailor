@@ -577,6 +577,34 @@ class RunDetail {
   );
 }
 
+/// A PDF kept with a run. [originalFilename] is null for one the app compiled.
+class StoredPdf {
+  const StoredPdf({required this.sizeBytes, required this.originalFilename, required this.storedAt});
+
+  final int sizeBytes;
+  final String? originalFilename;
+  final String storedAt;
+
+  factory StoredPdf.fromJson(Json json) => StoredPdf(
+    sizeBytes: _int(json['sizeBytes']) ?? 0,
+    originalFilename: _str(json['originalFilename']),
+    storedAt: json['storedAt'] as String,
+  );
+}
+
+/// The PDFs kept with a run; either is null when there is none.
+class StoredPdfs {
+  const StoredPdfs({required this.compiled, required this.uploaded});
+
+  final StoredPdf? compiled;
+  final StoredPdf? uploaded;
+
+  factory StoredPdfs.fromJson(Json json) => StoredPdfs(
+    compiled: json['compiled'] == null ? null : StoredPdf.fromJson(json['compiled'] as Json),
+    uploaded: json['uploaded'] == null ? null : StoredPdf.fromJson(json['uploaded'] as Json),
+  );
+}
+
 class CreateRunRequest {
   const CreateRunRequest({required this.resumeId, required this.jdText, this.company, this.role, this.jobUrl});
 
