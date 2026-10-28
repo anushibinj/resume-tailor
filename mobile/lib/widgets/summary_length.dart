@@ -88,7 +88,10 @@ class SummaryLength extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Summary length', style: heading),
-              Semantics(liveRegion: true, child: Text('≈ ${shown.lines} lines', style: TextStyle(fontSize: 14, color: p.ink))),
+              Semantics(
+                liveRegion: true,
+                child: Text('≈ ${shown.lines} lines', style: TextStyle(fontSize: 14, color: p.ink)),
+              ),
             ],
           ),
           if (variants.length > 1)
@@ -132,7 +135,11 @@ class SummaryLength extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               onPressed: generating ? null : onGenerate,
-              style: TextButton.styleFrom(foregroundColor: p.inkSoft, padding: EdgeInsets.zero, textStyle: const TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                foregroundColor: p.inkSoft,
+                padding: EdgeInsets.zero,
+                textStyle: const TextStyle(fontSize: 12),
+              ),
               icon: const Icon(Icons.refresh, size: 14),
               label: const Text('Write new options'),
             ),

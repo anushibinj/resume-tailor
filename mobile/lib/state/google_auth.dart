@@ -31,11 +31,11 @@ class PlatformGoogleAuth implements GoogleAuth {
   bool get configured => AppConfig.googleServerClientId.isNotEmpty;
 
   Future<void> _initialize() => _initialized ??= GoogleSignIn.instance.initialize(
-        serverClientId: AppConfig.googleServerClientId,
-        clientId: defaultTargetPlatform == TargetPlatform.iOS && AppConfig.googleIosClientId.isNotEmpty
-            ? AppConfig.googleIosClientId
-            : null,
-      );
+    serverClientId: AppConfig.googleServerClientId,
+    clientId: defaultTargetPlatform == TargetPlatform.iOS && AppConfig.googleIosClientId.isNotEmpty
+        ? AppConfig.googleIosClientId
+        : null,
+  );
 
   @override
   Future<String> signIn() async {

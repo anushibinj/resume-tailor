@@ -16,7 +16,10 @@ Future<bool> confirmDestructive(BuildContext context, String message, {String co
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),
-          child: Text(confirmLabel, style: TextStyle(color: p.strike, fontWeight: FontWeight.w600)),
+          child: Text(
+            confirmLabel,
+            style: TextStyle(color: p.strike, fontWeight: FontWeight.w600),
+          ),
         ),
       ],
     ),

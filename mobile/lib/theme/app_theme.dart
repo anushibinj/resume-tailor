@@ -138,22 +138,22 @@ extension PaletteContext on BuildContext {
 /// google_fonts' own `*TextTheme` helpers are typed against the decoupled `material_ui`
 /// package, not `flutter/material`, so each style is mapped through [AppFonts.sans] here.
 TextTheme _sansTextTheme(TextTheme t) => TextTheme(
-      displayLarge: AppFonts.sans(t.displayLarge),
-      displayMedium: AppFonts.sans(t.displayMedium),
-      displaySmall: AppFonts.sans(t.displaySmall),
-      headlineLarge: AppFonts.sans(t.headlineLarge),
-      headlineMedium: AppFonts.sans(t.headlineMedium),
-      headlineSmall: AppFonts.sans(t.headlineSmall),
-      titleLarge: AppFonts.sans(t.titleLarge),
-      titleMedium: AppFonts.sans(t.titleMedium),
-      titleSmall: AppFonts.sans(t.titleSmall),
-      bodyLarge: AppFonts.sans(t.bodyLarge),
-      bodyMedium: AppFonts.sans(t.bodyMedium),
-      bodySmall: AppFonts.sans(t.bodySmall),
-      labelLarge: AppFonts.sans(t.labelLarge),
-      labelMedium: AppFonts.sans(t.labelMedium),
-      labelSmall: AppFonts.sans(t.labelSmall),
-    );
+  displayLarge: AppFonts.sans(t.displayLarge),
+  displayMedium: AppFonts.sans(t.displayMedium),
+  displaySmall: AppFonts.sans(t.displaySmall),
+  headlineLarge: AppFonts.sans(t.headlineLarge),
+  headlineMedium: AppFonts.sans(t.headlineMedium),
+  headlineSmall: AppFonts.sans(t.headlineSmall),
+  titleLarge: AppFonts.sans(t.titleLarge),
+  titleMedium: AppFonts.sans(t.titleMedium),
+  titleSmall: AppFonts.sans(t.titleSmall),
+  bodyLarge: AppFonts.sans(t.bodyLarge),
+  bodyMedium: AppFonts.sans(t.bodyMedium),
+  bodySmall: AppFonts.sans(t.bodySmall),
+  labelLarge: AppFonts.sans(t.labelLarge),
+  labelMedium: AppFonts.sans(t.labelMedium),
+  labelSmall: AppFonts.sans(t.labelSmall),
+);
 
 ThemeData buildTheme(Brightness brightness) {
   final p = brightness == Brightness.dark ? Palette.dark : Palette.light;
@@ -161,15 +161,14 @@ ThemeData buildTheme(Brightness brightness) {
   final textTheme = _sansTextTheme(base.textTheme).apply(bodyColor: p.ink, displayColor: p.ink);
 
   const radius = BorderRadius.all(Radius.circular(2));
-  OutlineInputBorder border(Color color) =>
-      OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: color));
+  OutlineInputBorder border(Color color) => OutlineInputBorder(
+    borderRadius: radius,
+    borderSide: BorderSide(color: color),
+  );
 
   return base.copyWith(
     scaffoldBackgroundColor: p.paper,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: p.pencil,
-      brightness: brightness,
-    ).copyWith(
+    colorScheme: ColorScheme.fromSeed(seedColor: p.pencil, brightness: brightness).copyWith(
       primary: p.pencil,
       onPrimary: p.onPencil,
       surface: p.surface,
@@ -199,10 +198,8 @@ ThemeData buildTheme(Brightness brightness) {
         (states) => IconThemeData(color: states.contains(WidgetState.selected) ? p.pencil : p.inkSoft),
       ),
       labelTextStyle: WidgetStateProperty.resolveWith(
-        (states) => AppFonts.sans(TextStyle(
-          fontSize: 12,
-          color: states.contains(WidgetState.selected) ? p.pencil : p.inkSoft,
-        )),
+        (states) =>
+            AppFonts.sans(TextStyle(fontSize: 12, color: states.contains(WidgetState.selected) ? p.pencil : p.inkSoft)),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -221,7 +218,10 @@ ThemeData buildTheme(Brightness brightness) {
       behavior: SnackBarBehavior.floating,
       backgroundColor: p.surface,
       contentTextStyle: TextStyle(color: p.ink, fontSize: 14),
-      shape: RoundedRectangleBorder(borderRadius: radius, side: BorderSide(color: p.ruleStrong)),
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: p.ruleStrong),
+      ),
       showCloseIcon: true,
       closeIconColor: p.inkSoft,
     ),
@@ -233,7 +233,10 @@ ThemeData buildTheme(Brightness brightness) {
     popupMenuTheme: PopupMenuThemeData(
       color: p.surface,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: radius, side: BorderSide(color: p.rule)),
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: p.rule),
+      ),
     ),
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(

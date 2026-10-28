@@ -63,7 +63,10 @@ class AppButton extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: label == null ? 8 : (compact ? 10 : 14), vertical: compact ? 4 : 8),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         textStyle: AppFonts.sans(TextStyle(fontSize: compact ? 12 : 14, fontWeight: FontWeight.w500)),
-        shape: RoundedRectangleBorder(borderRadius: _radius, side: BorderSide(color: border)),
+        shape: RoundedRectangleBorder(
+          borderRadius: _radius,
+          side: BorderSide(color: border),
+        ),
       ),
       child: Row(
         mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
@@ -95,7 +98,10 @@ class Field extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 6,
       children: [
-        Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: p.ink)),
+        Text(
+          label,
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: p.ink),
+        ),
         child,
         if (hint != null) Text(hint!, style: TextStyle(fontSize: 12, color: p.inkSoft)),
       ],
@@ -106,7 +112,13 @@ class Field extends StatelessWidget {
 enum PanelTone { plain, gap, strike }
 
 class Panel extends StatelessWidget {
-  const Panel({super.key, required this.child, this.padding = const EdgeInsets.all(20), this.tone = PanelTone.plain, this.onTap});
+  const Panel({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(20),
+    this.tone = PanelTone.plain,
+    this.onTap,
+  });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -123,7 +135,10 @@ class Panel extends StatelessWidget {
     };
     return Material(
       color: bg,
-      shape: RoundedRectangleBorder(borderRadius: _radius, side: BorderSide(color: border)),
+      shape: RoundedRectangleBorder(
+        borderRadius: _radius,
+        side: BorderSide(color: border),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -148,7 +163,9 @@ class PageHeading extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.rule))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: p.rule)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -157,10 +174,7 @@ class PageHeading extends StatelessWidget {
             const SizedBox(height: 8),
             Text(lede!, style: TextStyle(fontSize: 14, height: 1.5, color: p.inkSoft)),
           ],
-          if (actions.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Wrap(spacing: 8, runSpacing: 8, children: actions),
-          ],
+          if (actions.isNotEmpty) ...[const SizedBox(height: 16), Wrap(spacing: 8, runSpacing: 8, children: actions)],
         ],
       ),
     );
@@ -184,9 +198,17 @@ class EmptyState extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
         child: Column(
           children: [
-            Text(title, textAlign: TextAlign.center, style: AppFonts.serif(TextStyle(fontSize: 20, color: p.ink))),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: AppFonts.serif(TextStyle(fontSize: 20, color: p.ink)),
+            ),
             const SizedBox(height: 8),
-            Text(body, textAlign: TextAlign.center, style: TextStyle(fontSize: 14, height: 1.5, color: p.inkSoft)),
+            Text(
+              body,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, height: 1.5, color: p.inkSoft),
+            ),
             if (action != null) ...[const SizedBox(height: 24), action!],
           ],
         ),
@@ -248,8 +270,15 @@ class Tag extends StatelessWidget {
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: _radius, border: Border.all(color: border)),
-      child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: fg)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: _radius,
+        border: Border.all(color: border),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: fg),
+      ),
     );
   }
 }
@@ -289,8 +318,10 @@ class Skeleton extends StatefulWidget {
 }
 
 class _SkeletonState extends State<Skeleton> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))..repeat(reverse: true);
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1000),
+  )..repeat(reverse: true);
 
   @override
   void dispose() {
@@ -348,9 +379,9 @@ class Eyebrow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-        text.toUpperCase(),
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, letterSpacing: 0.6, color: context.palette.inkFaint),
-      );
+    text.toUpperCase(),
+    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, letterSpacing: 0.6, color: context.palette.inkFaint),
+  );
 }
 
 /// A centred spinner for a whole-screen loading state.
@@ -361,13 +392,13 @@ class LoadingBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Row(
-          spacing: 12,
-          children: [
-            const Spinner(),
-            if (label != null) Text(label!, style: TextStyle(color: context.palette.inkSoft)),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 16),
+    child: Row(
+      spacing: 12,
+      children: [
+        const Spinner(),
+        if (label != null) Text(label!, style: TextStyle(color: context.palette.inkSoft)),
+      ],
+    ),
+  );
 }

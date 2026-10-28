@@ -5,11 +5,7 @@ import '../theme/app_theme.dart';
 import 'ui.dart';
 
 /// Required requirements are drawn tallest, so a missing one is visible at a glance.
-const _tickHeight = {
-  KeywordImportance.required: 28.0,
-  KeywordImportance.preferred: 20.0,
-  KeywordImportance.nice: 14.0,
-};
+const _tickHeight = {KeywordImportance.required: 28.0, KeywordImportance.preferred: 20.0, KeywordImportance.nice: 14.0};
 
 /// The match score, drawn as the data rather than as a summary of it: one tick per
 /// keyword the posting asks for, filled when the tailored resume covers it. Reading left
@@ -41,7 +37,8 @@ class CoverageMeter extends StatelessWidget {
                 for (final keyword in keywords)
                   Tooltip(
                     triggerMode: TooltipTriggerMode.tap,
-                    message: '${keyword.keyword} — ${keyword.importance.name}, '
+                    message:
+                        '${keyword.keyword} — ${keyword.importance.name}, '
                         '${keyword.isCovered ? 'covered' : 'not in your resume'}',
                     // A wider hit box than the 5px tick, so it can be tapped.
                     child: Padding(
@@ -68,10 +65,18 @@ class CoverageMeter extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text.rich(
-              TextSpan(children: [
-                TextSpan(text: '${score ?? '—'}', style: AppFonts.serif(TextStyle(fontSize: 24, height: 1, color: p.ink))),
-                TextSpan(text: '%', style: TextStyle(fontSize: 16, color: p.inkFaint)),
-              ]),
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '${score ?? '—'}',
+                    style: AppFonts.serif(TextStyle(fontSize: 24, height: 1, color: p.ink)),
+                  ),
+                  TextSpan(
+                    text: '%',
+                    style: TextStyle(fontSize: 16, color: p.inkFaint),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 4),
             Text('$covered of ${keywords.length} covered', style: TextStyle(fontSize: 12, color: p.inkSoft)),

@@ -12,10 +12,10 @@ List<Json> _list(Object? value) => ((value as List?) ?? const []).cast<Json>();
 enum Role { normalUser, orgAdmin, admin }
 
 Role _role(String? value) => switch (value) {
-      'ADMIN' => Role.admin,
-      'ORG_ADMIN' => Role.orgAdmin,
-      _ => Role.normalUser,
-    };
+  'ADMIN' => Role.admin,
+  'ORG_ADMIN' => Role.orgAdmin,
+  _ => Role.normalUser,
+};
 
 class AuthUser {
   const AuthUser({
@@ -33,12 +33,12 @@ class AuthUser {
   final Role role;
 
   factory AuthUser.fromJson(Json json) => AuthUser(
-        id: json['id'] as String,
-        email: json['email'] as String,
-        displayName: json['displayName'] as String,
-        pictureUrl: _str(json['pictureUrl']),
-        role: _role(_str(json['role'])),
-      );
+    id: json['id'] as String,
+    email: json['email'] as String,
+    displayName: json['displayName'] as String,
+    pictureUrl: _str(json['pictureUrl']),
+    role: _role(_str(json['role'])),
+  );
 }
 
 class AuthResponse {
@@ -67,27 +67,27 @@ enum ResumeFormat {
 enum RunStatus { pending, running, completed, failed }
 
 RunStatus _runStatus(String? value) => switch (value) {
-      'PENDING' => RunStatus.pending,
-      'RUNNING' => RunStatus.running,
-      'COMPLETED' => RunStatus.completed,
-      _ => RunStatus.failed,
-    };
+  'PENDING' => RunStatus.pending,
+  'RUNNING' => RunStatus.running,
+  'COMPLETED' => RunStatus.completed,
+  _ => RunStatus.failed,
+};
 
 enum KeywordImportance { required, preferred, nice }
 
 KeywordImportance _importance(String? value) => switch (value) {
-      'REQUIRED' => KeywordImportance.required,
-      'PREFERRED' => KeywordImportance.preferred,
-      _ => KeywordImportance.nice,
-    };
+  'REQUIRED' => KeywordImportance.required,
+  'PREFERRED' => KeywordImportance.preferred,
+  _ => KeywordImportance.nice,
+};
 
 enum SuggestionKind { bullet, skill, summary }
 
 SuggestionKind _kind(String? value) => switch (value) {
-      'BULLET' => SuggestionKind.bullet,
-      'SUMMARY' => SuggestionKind.summary,
-      _ => SuggestionKind.skill,
-    };
+  'BULLET' => SuggestionKind.bullet,
+  'SUMMARY' => SuggestionKind.summary,
+  _ => SuggestionKind.skill,
+};
 
 enum SuggestionStatus {
   proposed('PROPOSED'),
@@ -98,33 +98,33 @@ enum SuggestionStatus {
   final String wire;
 
   static SuggestionStatus parse(String? value) => switch (value) {
-        'ACCEPTED' => accepted,
-        'REJECTED' => rejected,
-        _ => proposed,
-      };
+    'ACCEPTED' => accepted,
+    'REJECTED' => rejected,
+    _ => proposed,
+  };
 }
 
 /// Gap analysis runs after the rewrite, so it has its own status.
 enum GapsStatus { pending, running, completed, failed, outdated }
 
 GapsStatus _gapsStatus(String? value) => switch (value) {
-      'PENDING' => GapsStatus.pending,
-      'RUNNING' => GapsStatus.running,
-      'COMPLETED' => GapsStatus.completed,
-      'OUTDATED' => GapsStatus.outdated,
-      _ => GapsStatus.failed,
-    };
+  'PENDING' => GapsStatus.pending,
+  'RUNNING' => GapsStatus.running,
+  'COMPLETED' => GapsStatus.completed,
+  'OUTDATED' => GapsStatus.outdated,
+  _ => GapsStatus.failed,
+};
 
 /// The summary length options are written after the rewrite, so they have a status of their own.
 enum SummaryStatus { pending, running, completed, failed, none }
 
 SummaryStatus _summaryStatus(String? value) => switch (value) {
-      'PENDING' => SummaryStatus.pending,
-      'RUNNING' => SummaryStatus.running,
-      'COMPLETED' => SummaryStatus.completed,
-      'FAILED' => SummaryStatus.failed,
-      _ => SummaryStatus.none,
-    };
+  'PENDING' => SummaryStatus.pending,
+  'RUNNING' => SummaryStatus.running,
+  'COMPLETED' => SummaryStatus.completed,
+  'FAILED' => SummaryStatus.failed,
+  _ => SummaryStatus.none,
+};
 
 class ResumeSummary {
   const ResumeSummary({
@@ -148,15 +148,15 @@ class ResumeSummary {
   final String updatedAt;
 
   factory ResumeSummary.fromJson(Json json) => ResumeSummary(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        format: ResumeFormat.parse(_str(json['format'])),
-        isDefault: json['isDefault'] as bool? ?? false,
-        sectionCount: _int(json['sectionCount']) ?? 0,
-        characterCount: _int(json['characterCount']) ?? 0,
-        createdAt: json['createdAt'] as String,
-        updatedAt: json['updatedAt'] as String,
-      );
+    id: json['id'] as String,
+    name: json['name'] as String,
+    format: ResumeFormat.parse(_str(json['format'])),
+    isDefault: json['isDefault'] as bool? ?? false,
+    sectionCount: _int(json['sectionCount']) ?? 0,
+    characterCount: _int(json['characterCount']) ?? 0,
+    createdAt: json['createdAt'] as String,
+    updatedAt: json['updatedAt'] as String,
+  );
 }
 
 class SectionSummary {
@@ -167,10 +167,10 @@ class SectionSummary {
   final int characterCount;
 
   factory SectionSummary.fromJson(Json json) => SectionSummary(
-        title: json['title'] as String,
-        level: _int(json['level']) ?? 1,
-        characterCount: _int(json['characterCount']) ?? 0,
-      );
+    title: json['title'] as String,
+    level: _int(json['level']) ?? 1,
+    characterCount: _int(json['characterCount']) ?? 0,
+  );
 }
 
 class ResumeDetail {
@@ -191,13 +191,13 @@ class ResumeDetail {
   final List<SectionSummary> sections;
 
   factory ResumeDetail.fromJson(Json json) => ResumeDetail(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        format: ResumeFormat.parse(_str(json['format'])),
-        isDefault: json['isDefault'] as bool? ?? false,
-        sourceText: _str(json['sourceText']) ?? '',
-        sections: _list(json['sections']).map(SectionSummary.fromJson).toList(),
-      );
+    id: json['id'] as String,
+    name: json['name'] as String,
+    format: ResumeFormat.parse(_str(json['format'])),
+    isDefault: json['isDefault'] as bool? ?? false,
+    sourceText: _str(json['sourceText']) ?? '',
+    sections: _list(json['sections']).map(SectionSummary.fromJson).toList(),
+  );
 }
 
 class SaveResumeRequest {
@@ -235,16 +235,16 @@ class LlmProfile {
   final String apiKeyMask;
 
   factory LlmProfile.fromJson(Json json) => LlmProfile(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        baseUrl: json['baseUrl'] as String,
-        model: json['model'] as String,
-        temperature: _double(json['temperature']) ?? 0,
-        maxOutputTokens: _int(json['maxOutputTokens']) ?? 0,
-        isDefault: json['isDefault'] as bool? ?? false,
-        hasApiKey: json['hasApiKey'] as bool? ?? false,
-        apiKeyMask: _str(json['apiKeyMask']) ?? '',
-      );
+    id: json['id'] as String,
+    name: json['name'] as String,
+    baseUrl: json['baseUrl'] as String,
+    model: json['model'] as String,
+    temperature: _double(json['temperature']) ?? 0,
+    maxOutputTokens: _int(json['maxOutputTokens']) ?? 0,
+    isDefault: json['isDefault'] as bool? ?? false,
+    hasApiKey: json['hasApiKey'] as bool? ?? false,
+    apiKeyMask: _str(json['apiKeyMask']) ?? '',
+  );
 }
 
 class SaveLlmProfileRequest {
@@ -267,13 +267,13 @@ class SaveLlmProfileRequest {
   final int? maxOutputTokens;
 
   Json toJson() => {
-        'name': name,
-        'baseUrl': baseUrl,
-        'apiKey': apiKey ?? '',
-        'model': model,
-        if (temperature != null) 'temperature': temperature,
-        if (maxOutputTokens != null) 'maxOutputTokens': maxOutputTokens,
-      };
+    'name': name,
+    'baseUrl': baseUrl,
+    'apiKey': apiKey ?? '',
+    'model': model,
+    if (temperature != null) 'temperature': temperature,
+    if (maxOutputTokens != null) 'maxOutputTokens': maxOutputTokens,
+  };
 }
 
 class TestConnectionResponse {
@@ -284,10 +284,10 @@ class TestConnectionResponse {
   final int latencyMs;
 
   factory TestConnectionResponse.fromJson(Json json) => TestConnectionResponse(
-        ok: json['ok'] as bool? ?? false,
-        message: _str(json['message']) ?? '',
-        latencyMs: _int(json['latencyMs']) ?? 0,
-      );
+    ok: json['ok'] as bool? ?? false,
+    message: _str(json['message']) ?? '',
+    latencyMs: _int(json['latencyMs']) ?? 0,
+  );
 }
 
 class SectionDiff {
@@ -308,13 +308,13 @@ class SectionDiff {
   final String? rationale;
 
   factory SectionDiff.fromJson(Json json) => SectionDiff(
-        title: _str(json['title']) ?? '',
-        level: _int(json['level']) ?? 1,
-        originalContent: _str(json['originalContent']) ?? '',
-        tailoredContent: _str(json['tailoredContent']) ?? '',
-        changeType: _str(json['changeType']),
-        rationale: _str(json['rationale']),
-      );
+    title: _str(json['title']) ?? '',
+    level: _int(json['level']) ?? 1,
+    originalContent: _str(json['originalContent']) ?? '',
+    tailoredContent: _str(json['tailoredContent']) ?? '',
+    changeType: _str(json['changeType']),
+    rationale: _str(json['rationale']),
+  );
 }
 
 class Suggestion {
@@ -339,14 +339,14 @@ class Suggestion {
   final SuggestionStatus status;
 
   factory Suggestion.fromJson(Json json) => Suggestion(
-        id: json['id'] as String,
-        kind: _kind(_str(json['kind'])),
-        keyword: _str(json['keyword']),
-        targetSection: _str(json['targetSection']),
-        content: _str(json['content']) ?? '',
-        rationale: _str(json['rationale']),
-        status: SuggestionStatus.parse(_str(json['status'])),
-      );
+    id: json['id'] as String,
+    kind: _kind(_str(json['kind'])),
+    keyword: _str(json['keyword']),
+    targetSection: _str(json['targetSection']),
+    content: _str(json['content']) ?? '',
+    rationale: _str(json['rationale']),
+    status: SuggestionStatus.parse(_str(json['status'])),
+  );
 }
 
 class KeywordResult {
@@ -377,13 +377,13 @@ class KeywordResult {
   bool get isCovered => covered || addition?.status == SuggestionStatus.accepted;
 
   factory KeywordResult.fromJson(Json json) => KeywordResult(
-        keyword: json['keyword'] as String,
-        importance: _importance(_str(json['importance'])),
-        covered: json['covered'] as bool? ?? false,
-        evidence: _str(json['evidence']),
-        addition: json['addition'] == null ? null : Suggestion.fromJson(json['addition'] as Json),
-        description: _str(json['description']),
-      );
+    keyword: json['keyword'] as String,
+    importance: _importance(_str(json['importance'])),
+    covered: json['covered'] as bool? ?? false,
+    evidence: _str(json['evidence']),
+    addition: json['addition'] == null ? null : Suggestion.fromJson(json['addition'] as Json),
+    description: _str(json['description']),
+  );
 }
 
 class SummaryVariant {
@@ -415,8 +415,7 @@ class SummaryOptions {
   /// Shortest first. Empty until written, or when the resume has no summary to resize.
   final List<SummaryVariant> variants;
 
-  static const empty =
-      SummaryOptions(status: SummaryStatus.none, error: null, selectedLines: null, variants: []);
+  static const empty = SummaryOptions(status: SummaryStatus.none, error: null, selectedLines: null, variants: []);
 
   SummaryOptions withSelectedLines(int lines) =>
       SummaryOptions(status: status, error: error, selectedLines: lines, variants: variants);
@@ -456,16 +455,16 @@ class RunSummary {
   final String createdAt;
 
   factory RunSummary.fromJson(Json json) => RunSummary(
-        id: json['id'] as String,
-        status: _runStatus(_str(json['status'])),
-        company: _str(json['company']),
-        role: _str(json['role']),
-        jobUrl: _str(json['jobUrl']),
-        resumeName: _str(json['resumeName']),
-        format: ResumeFormat.parse(_str(json['format'])),
-        matchScore: _int(json['matchScore']),
-        createdAt: json['createdAt'] as String,
-      );
+    id: json['id'] as String,
+    status: _runStatus(_str(json['status'])),
+    company: _str(json['company']),
+    role: _str(json['role']),
+    jobUrl: _str(json['jobUrl']),
+    resumeName: _str(json['resumeName']),
+    format: ResumeFormat.parse(_str(json['format'])),
+    matchScore: _int(json['matchScore']),
+    createdAt: json['createdAt'] as String,
+  );
 }
 
 class RunDetail {
@@ -530,62 +529,56 @@ class RunDetail {
       summary.status == SummaryStatus.running;
 
   RunDetail withSummary(SummaryOptions value) => RunDetail(
-        id: id,
-        status: status,
-        gapsStatus: gapsStatus,
-        gapsError: gapsError,
-        format: format,
-        company: company,
-        role: role,
-        jobUrl: jobUrl,
-        resumeName: resumeName,
-        jobDescriptionText: jobDescriptionText,
-        tailoredSource: tailoredSource,
-        modelUsed: modelUsed,
-        promptTokens: promptTokens,
-        completionTokens: completionTokens,
-        matchScore: matchScore,
-        errorMessage: errorMessage,
-        sections: sections,
-        keywords: keywords,
-        otherSuggestions: otherSuggestions,
-        summary: value,
-        createdAt: createdAt,
-      );
+    id: id,
+    status: status,
+    gapsStatus: gapsStatus,
+    gapsError: gapsError,
+    format: format,
+    company: company,
+    role: role,
+    jobUrl: jobUrl,
+    resumeName: resumeName,
+    jobDescriptionText: jobDescriptionText,
+    tailoredSource: tailoredSource,
+    modelUsed: modelUsed,
+    promptTokens: promptTokens,
+    completionTokens: completionTokens,
+    matchScore: matchScore,
+    errorMessage: errorMessage,
+    sections: sections,
+    keywords: keywords,
+    otherSuggestions: otherSuggestions,
+    summary: value,
+    createdAt: createdAt,
+  );
 
   factory RunDetail.fromJson(Json json) => RunDetail(
-        id: json['id'] as String,
-        status: _runStatus(_str(json['status'])),
-        gapsStatus: _gapsStatus(_str(json['gapsStatus'])),
-        gapsError: _str(json['gapsError']),
-        format: ResumeFormat.parse(_str(json['format'])),
-        company: _str(json['company']),
-        role: _str(json['role']),
-        jobUrl: _str(json['jobUrl']),
-        resumeName: _str(json['resumeName']),
-        jobDescriptionText: _str(json['jobDescriptionText']),
-        tailoredSource: _str(json['tailoredSource']),
-        modelUsed: _str(json['modelUsed']),
-        promptTokens: _int(json['promptTokens']),
-        completionTokens: _int(json['completionTokens']),
-        matchScore: _int(json['matchScore']),
-        errorMessage: _str(json['errorMessage']),
-        sections: _list(json['sections']).map(SectionDiff.fromJson).toList(),
-        keywords: _list(json['keywords']).map(KeywordResult.fromJson).toList(),
-        otherSuggestions: _list(json['otherSuggestions']).map(Suggestion.fromJson).toList(),
-        summary: SummaryOptions.fromJson(json['summary'] as Json?),
-        createdAt: json['createdAt'] as String,
-      );
+    id: json['id'] as String,
+    status: _runStatus(_str(json['status'])),
+    gapsStatus: _gapsStatus(_str(json['gapsStatus'])),
+    gapsError: _str(json['gapsError']),
+    format: ResumeFormat.parse(_str(json['format'])),
+    company: _str(json['company']),
+    role: _str(json['role']),
+    jobUrl: _str(json['jobUrl']),
+    resumeName: _str(json['resumeName']),
+    jobDescriptionText: _str(json['jobDescriptionText']),
+    tailoredSource: _str(json['tailoredSource']),
+    modelUsed: _str(json['modelUsed']),
+    promptTokens: _int(json['promptTokens']),
+    completionTokens: _int(json['completionTokens']),
+    matchScore: _int(json['matchScore']),
+    errorMessage: _str(json['errorMessage']),
+    sections: _list(json['sections']).map(SectionDiff.fromJson).toList(),
+    keywords: _list(json['keywords']).map(KeywordResult.fromJson).toList(),
+    otherSuggestions: _list(json['otherSuggestions']).map(Suggestion.fromJson).toList(),
+    summary: SummaryOptions.fromJson(json['summary'] as Json?),
+    createdAt: json['createdAt'] as String,
+  );
 }
 
 class CreateRunRequest {
-  const CreateRunRequest({
-    required this.resumeId,
-    required this.jdText,
-    this.company,
-    this.role,
-    this.jobUrl,
-  });
+  const CreateRunRequest({required this.resumeId, required this.jdText, this.company, this.role, this.jobUrl});
 
   final String? resumeId;
   final String jdText;
@@ -594,12 +587,12 @@ class CreateRunRequest {
   final String? jobUrl;
 
   Json toJson() => {
-        'resumeId': resumeId,
-        'jdText': jdText,
-        if (company != null) 'company': company,
-        if (role != null) 'role': role,
-        if (jobUrl != null) 'jobUrl': jobUrl,
-      };
+    'resumeId': resumeId,
+    'jdText': jdText,
+    if (company != null) 'company': company,
+    if (role != null) 'role': role,
+    if (jobUrl != null) 'jobUrl': jobUrl,
+  };
 }
 
 class PageOf<T> {
@@ -608,10 +601,8 @@ class PageOf<T> {
   final List<T> content;
   final int totalElements;
 
-  factory PageOf.fromJson(Json json, T Function(Json) item) => PageOf(
-        content: _list(json['content']).map(item).toList(),
-        totalElements: _int(json['totalElements']) ?? 0,
-      );
+  factory PageOf.fromJson(Json json, T Function(Json) item) =>
+      PageOf(content: _list(json['content']).map(item).toList(), totalElements: _int(json['totalElements']) ?? 0);
 }
 
 enum QuestionStatus { completed, failed }
@@ -639,12 +630,12 @@ class ResumeQuestion {
   final String createdAt;
 
   factory ResumeQuestion.fromJson(Json json) => ResumeQuestion(
-        id: json['id'] as String,
-        resumeId: json['resumeId'] as String,
-        question: json['question'] as String,
-        answer: _str(json['answer']),
-        status: _str(json['status']) == 'COMPLETED' ? QuestionStatus.completed : QuestionStatus.failed,
-        errorMessage: _str(json['errorMessage']),
-        createdAt: json['createdAt'] as String,
-      );
+    id: json['id'] as String,
+    resumeId: json['resumeId'] as String,
+    question: json['question'] as String,
+    answer: _str(json['answer']),
+    status: _str(json['status']) == 'COMPLETED' ? QuestionStatus.completed : QuestionStatus.failed,
+    errorMessage: _str(json['errorMessage']),
+    createdAt: json['createdAt'] as String,
+  );
 }

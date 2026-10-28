@@ -41,7 +41,10 @@ class KeywordMargin extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     if (keywords.isEmpty && otherSuggestions.isEmpty) {
-      return Text('No requirements were extracted from this posting.', style: TextStyle(fontSize: 14, color: p.inkSoft));
+      return Text(
+        'No requirements were extracted from this posting.',
+        style: TextStyle(fontSize: 14, color: p.inkSoft),
+      );
     }
 
     final missingIds = [
@@ -67,12 +70,17 @@ class KeywordMargin extends StatelessWidget {
         if (otherSuggestions.isNotEmpty)
           Container(
             padding: const EdgeInsets.only(top: 16),
-            decoration: BoxDecoration(border: Border(top: BorderSide(color: p.rule))),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: p.rule)),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               spacing: 8,
               children: [
-                Text('Other additions', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: p.ink)),
+                Text(
+                  'Other additions',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: p.ink),
+                ),
                 for (final suggestion in otherSuggestions)
                   _SuggestionRow(
                     suggestion: suggestion,
@@ -85,7 +93,9 @@ class KeywordMargin extends StatelessWidget {
           ),
         Container(
           padding: const EdgeInsets.only(top: 12),
-          decoration: BoxDecoration(border: Border(top: BorderSide(color: p.rule))),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: p.rule)),
+          ),
           child: Text(
             'Checked by ${modelUsed ?? 'your model'}. Tap anything covered to see the line of your '
             'resume it read that from, or a missing skill\'s ⓘ to see what it means.',
@@ -109,8 +119,14 @@ class KeywordMargin extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: p.ink)),
-            Text(gaps.isEmpty ? 'all covered' : '${gaps.length} to add', style: TextStyle(fontSize: 12, color: p.inkFaint)),
+            Text(
+              label,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: p.ink),
+            ),
+            Text(
+              gaps.isEmpty ? 'all covered' : '${gaps.length} to add',
+              style: TextStyle(fontSize: 12, color: p.inkFaint),
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -178,7 +194,9 @@ class _GapRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              Flexible(child: Text(keyword.keyword, style: TextStyle(fontSize: 14, color: titleColor))),
+              Flexible(
+                child: Text(keyword.keyword, style: TextStyle(fontSize: 14, color: titleColor)),
+              ),
               if (keyword.description != null)
                 // On a phone there is no hover, so the explanation sits behind a tap target.
                 Tooltip(
@@ -241,7 +259,12 @@ class _GapRow extends StatelessWidget {
 
 /// An addition kept from an earlier check, no longer tied to a listed requirement.
 class _SuggestionRow extends StatelessWidget {
-  const _SuggestionRow({required this.suggestion, required this.onDecide, required this.busy, required this.isAddingSkill});
+  const _SuggestionRow({
+    required this.suggestion,
+    required this.onDecide,
+    required this.busy,
+    required this.isAddingSkill,
+  });
 
   final Suggestion suggestion;
   final DecideCallback onDecide;

@@ -48,11 +48,8 @@ bool _isPublicAuthEndpoint(String path) => path == '/api/auth/google';
 /// The phone calls the backend directly -- there is no proxy in between, the same as the
 /// web client.
 class ApiClient {
-  ApiClient({
-    required this.baseUrl,
-    required this.tokens,
-    http.Client? httpClient,
-  }) : _http = httpClient ?? http.Client();
+  ApiClient({required this.baseUrl, required this.tokens, http.Client? httpClient})
+    : _http = httpClient ?? http.Client();
 
   final String baseUrl;
   final TokenStore tokens;
@@ -161,9 +158,8 @@ class ApiClient {
   Future<void> deleteResume(String id) async => _json('DELETE', '/api/resumes/$id');
 
   /// Synchronous: answers in this one round trip, unlike a tailoring run.
-  Future<ResumeQuestion> askQuestion(String resumeId, String question) async => ResumeQuestion.fromJson(
-        await _object('POST', '/api/resumes/$resumeId/questions', body: {'question': question}),
-      );
+  Future<ResumeQuestion> askQuestion(String resumeId, String question) async =>
+      ResumeQuestion.fromJson(await _object('POST', '/api/resumes/$resumeId/questions', body: {'question': question}));
 
   Future<PageOf<ResumeQuestion>> questionHistory(String resumeId, {int page = 0, int size = 50}) async =>
       PageOf.fromJson(

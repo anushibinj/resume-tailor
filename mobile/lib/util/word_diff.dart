@@ -14,7 +14,11 @@ class DiffPart {
   int get hashCode => Object.hash(value, added, removed);
 
   @override
-  String toString() => added ? '+[$value]' : removed ? '-[$value]' : '[$value]';
+  String toString() => added
+      ? '+[$value]'
+      : removed
+      ? '-[$value]'
+      : '[$value]';
 }
 
 // Words, runs of whitespace, and single punctuation marks -- the same granularity as
@@ -70,9 +74,7 @@ List<DiffPart> diffWords(String original, String tailored) {
       for (var j = m - 1; j >= 0; j--) {
         lcs[i * width + j] = a[start + i] == b[start + j]
             ? lcs[(i + 1) * width + j + 1] + 1
-            : (lcs[(i + 1) * width + j] >= lcs[i * width + j + 1]
-                ? lcs[(i + 1) * width + j]
-                : lcs[i * width + j + 1]);
+            : (lcs[(i + 1) * width + j] >= lcs[i * width + j + 1] ? lcs[(i + 1) * width + j] : lcs[i * width + j + 1]);
       }
     }
 

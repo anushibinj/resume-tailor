@@ -28,7 +28,10 @@ class JobListingLink extends StatelessWidget {
     final style = AppFonts.mono(TextStyle(fontSize: 12, color: p.inkSoft));
 
     if (!isValidHttpUrl(trimmed)) {
-      return Tooltip(message: trimmed, child: Text(display, style: style, overflow: TextOverflow.ellipsis));
+      return Tooltip(
+        message: trimmed,
+        child: Text(display, style: style, overflow: TextOverflow.ellipsis),
+      );
     }
 
     return Row(

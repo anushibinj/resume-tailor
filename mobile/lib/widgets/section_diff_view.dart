@@ -6,12 +6,7 @@ import '../util/word_diff.dart';
 import 'ui.dart';
 import 'word_diff_view.dart';
 
-const _changeLabel = {
-  'REWORDED': 'Reworded',
-  'REORDERED': 'Moved',
-  'TRIMMED': 'Trimmed',
-  'EMPHASISED': 'Emphasised',
-};
+const _changeLabel = {'REWORDED': 'Reworded', 'REORDERED': 'Moved', 'TRIMMED': 'Trimmed', 'EMPHASISED': 'Emphasised'};
 
 class SectionDiffView extends StatelessWidget {
   const SectionDiffView({super.key, required this.sections, required this.format});
@@ -21,13 +16,13 @@ class SectionDiffView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 12,
-        children: [
-          for (var i = 0; i < sections.length; i++)
-            _SectionRow(key: ValueKey('${sections[i].title}-$i'), section: sections[i], format: format),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: 12,
+    children: [
+      for (var i = 0; i < sections.length; i++)
+        _SectionRow(key: ValueKey('${sections[i].title}-$i'), section: sections[i], format: format),
+    ],
+  );
 }
 
 class _SectionRow extends StatefulWidget {
@@ -128,7 +123,10 @@ class _SectionRowState extends State<_SectionRow> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(heading, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: p.inkFaint)),
+          Text(
+            heading,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: p.inkFaint),
+          ),
           const SizedBox(height: 8),
           WordDiffView(parts: parts, side: side, format: widget.format),
         ],

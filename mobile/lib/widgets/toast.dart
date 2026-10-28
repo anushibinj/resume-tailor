@@ -30,7 +30,9 @@ void showToast(String message, {ToastTone tone = ToastTone.info}) {
           spacing: 10,
           children: [
             Icon(icon, size: 18, color: color),
-            Expanded(child: Text(message, style: TextStyle(color: p.ink))),
+            Expanded(
+              child: Text(message, style: TextStyle(color: p.ink)),
+            ),
           ],
         ),
       ),

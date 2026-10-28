@@ -21,7 +21,10 @@ class SystemFileSharer implements FileSharer {
     final path = '${directory.path}/$safeName';
     await File(path).writeAsBytes(file.bytes, flush: true);
     await SharePlus.instance.share(
-      ShareParams(files: [XFile(path, mimeType: file.contentType, name: safeName)], title: safeName),
+      ShareParams(
+        files: [XFile(path, mimeType: file.contentType, name: safeName)],
+        title: safeName,
+      ),
     );
   }
 }
