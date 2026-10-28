@@ -14,7 +14,7 @@ flowchart TB
 
     subgraph phone["Phone — Flutter (mobile/), Android + iOS"]
         msignin["sign-in gate<br/>native Google account picker<br/>serverClientId = the Web client ID"]
-        mapp["same features as the browser<br/>Home · Tailor · Resumes · Ask · History · Settings<br/>run review: diff · requirements tab · summary slider · share-sheet export<br/>saved PDFs: compiled copy + upload your own (raw PUT, no multipart)"]
+        mapp["same features as the browser<br/>Home · Tailor · Resumes · Ask · History · Settings<br/>run review: diff · requirements tab · summary slider · share-sheet export<br/>saved PDFs: compiled copy + upload your own (raw PUT, no multipart)<br/>Retry: POST /api/runs/{id}/rerun after a warning, then polls"]
     end
 
     subgraph api["Spring Boot (:8080)"]
