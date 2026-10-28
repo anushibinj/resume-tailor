@@ -287,6 +287,25 @@ class TailoringControllerTest {
     }
 
     @Test
+    void rerunIsAcceptedAndReportsTheRunAsPending() throws Exception {
+        given(tailoringService.requestRerun(RUN_ID)).willReturn(detail(RunStatus.PENDING));
+
+        mockMvc.perform(post("/api/runs/{id}/rerun", RUN_ID))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void rerunOfARunInProgressIsARedable400() throws Exception {
+        willThrow(new BadRequestException("This run is already in progress"))
+                .given(tailoringService).requestRerun(RUN_ID);
+
+        mockMvc.perform(post("/api/runs/{id}/rerun", RUN_ID))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("This run is already in progress"));
+    }
+
+    @Test
     void recheckOnAnUnfinishedRunIsARedable400() throws Exception {
         willThrow(new BadRequestException("This run has not produced a tailored resume yet"))
                 .given(tailoringService).requestGapRecheck(RUN_ID);

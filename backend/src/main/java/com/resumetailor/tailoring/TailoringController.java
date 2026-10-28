@@ -59,6 +59,13 @@ public class TailoringController {
         return tailoringService.updateSuggestion(id, suggestionId, request.status());
     }
 
+    /** Redoes the whole run from its saved resume and posting, replacing what it produced. */
+    @PostMapping("/{id}/rerun")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public RunDetail rerun(@PathVariable UUID id) {
+        return tailoringService.requestRerun(id);
+    }
+
     /** Re-runs the requirement check on its own, keeping additions already accepted. */
     @PostMapping("/{id}/gaps")
     @ResponseStatus(HttpStatus.ACCEPTED)
