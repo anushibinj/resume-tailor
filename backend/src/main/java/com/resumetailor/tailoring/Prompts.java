@@ -120,6 +120,9 @@ public final class Prompts {
                    stays a Java developer however long the job's keyword list is.
                 9. Leave comment lines (LaTeX lines starting with %%) exactly as they are. Do not
                    delete them and do not uncomment them.
+                10. The Summary (Profile, About) section is ONE single paragraph of flowing prose.
+                    Never write it as bullet points, a list, or several paragraphs -- if the
+                    original is bulleted or split up, merge it into one paragraph.
 
                 If the job wants something the resume does not support, leave it out. A separate
                 step shows it to the candidate as a gap and offers to add it; the candidate, not
@@ -190,7 +193,7 @@ public final class Prompts {
                 """
                 : """
                 - Use the same emphasis style the resume already uses. No headings and no list
-                  markers unless the summary itself is a list.
+                  markers.
                 """;
         StringBuilder budgets = new StringBuilder();
         for (int lines = SummaryVariants.MIN_LINES; lines <= SummaryVariants.MAX_LINES; lines++) {
@@ -225,7 +228,8 @@ public final class Prompts {
                 2. The candidate stays who they are. Keep their OWN title and the stack they list.
                    The role the job is hiring for is not their title. A skill the resume does not
                    mention does not appear, however much the job asks for it.
-                3. Every variant is a complete, natural paragraph in its own right, not the longer
+                3. Every variant is ONE single paragraph of flowing prose -- never bullet points,
+                   a list or several paragraphs. It is a complete, natural paragraph in its own right, not the longer
                    one cut off. The shorter it is, the more it keeps only what matters most for
                    this job. Keep the candidate's voice and person; do not switch to "I" or "he".
                 4. Preserve the %s markup dialect exactly.

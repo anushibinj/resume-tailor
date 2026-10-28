@@ -26,6 +26,14 @@ class PromptsTest {
     }
 
     @Test
+    void summaryIsASingleParagraphNeverBullets() {
+        for (ResumeFormat format : ResumeFormat.values()) {
+            assertThat(Prompts.tailoringSystem(format)).contains("ONE single paragraph of flowing prose");
+            assertThat(Prompts.summaryVariantsSystem(format, 90)).contains("ONE single paragraph of flowing prose");
+        }
+    }
+
+    @Test
     void rewriteIsToldTheTargetRoleIsNotTheCandidatesOwn() {
         JdAnalysisResult analysis = new JdAnalysisResult(
                 "Microsoft", "Principal Software Engineer",
