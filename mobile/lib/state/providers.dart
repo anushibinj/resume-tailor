@@ -191,6 +191,12 @@ final pdfAvailableProvider = FutureProvider.family<bool, String>((ref, runId) {
   return ref.watch(apiClientProvider).pdfAvailable(runId);
 });
 
+/// The PDFs kept with a run: the last one compiled here, and one the user uploaded.
+final storedPdfsProvider = FutureProvider.autoDispose.family<StoredPdfs, String>((ref, runId) {
+  _requireUser(ref);
+  return ref.watch(apiClientProvider).storedPdfs(runId);
+});
+
 /// One run, polled every 2s while any of its work (rewrite, gap check, summary options)
 /// is still outstanding -- the same cadence as the web client.
 class RunNotifier extends AsyncNotifier<RunDetail> {
