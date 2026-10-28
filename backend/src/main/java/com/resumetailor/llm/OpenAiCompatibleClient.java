@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Talks to any endpoint exposing OpenAI's {@code POST /chat/completions}.
@@ -28,6 +29,8 @@ import java.util.Map;
  *   <li>{@code response_format: json_object} is requested when we need JSON, but a
  *       server that rejects the field gets one automatic retry without it -- several
  *       local runtimes 400 on unknown fields.</li>
+ *   <li>The output limit is sent as {@code max_tokens}, falling back to
+ *       {@code max_completion_tokens} (and remembered) for models that reject it.</li>
  *   <li>HTTP errors are surfaced with the provider's own message body, because the
  *       useful part ("model not found", "insufficient quota") lives there.</li>
  * </ul>
@@ -38,8 +41,13 @@ public class OpenAiCompatibleClient {
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(20);
 
+    private static final String MAX_TOKENS = "max_tokens";
+    private static final String MAX_COMPLETION_TOKENS = "max_completion_tokens";
+
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
+    /** Which output-limit field each endpoint+model accepted, learned from earlier calls. */
+    private final Map<String, String> tokenParamByEndpoint = new ConcurrentHashMap<>();
 
     // Explicit @Autowired: the class has a second constructor for tests, and Spring will
     // not guess between two candidates.
@@ -64,11 +72,28 @@ public class OpenAiCompatibleClient {
     }
 
     public LlmChatResult chat(LlmSettings settings, String systemPrompt, String userPrompt, boolean jsonMode) {
-        ResponseEntity<String> response = post(settings, systemPrompt, userPrompt, jsonMode);
+        String endpointKey = settings.baseUrl() + "|" + settings.model();
+        String tokenParam = tokenParamByEndpoint.getOrDefault(endpointKey, MAX_TOKENS);
+        ResponseEntity<String> response = post(settings, systemPrompt, userPrompt, jsonMode, tokenParam);
+
+        // OpenAI's newer models (o-series, gpt-5...) reject max_tokens and want
+        // max_completion_tokens; older and third-party servers only know max_tokens. Try one,
+        // then the other, and remember what worked so later calls get it right first time.
+        if (response.getStatusCode().isError()) {
+            String other = otherTokenParam(tokenParam, response.getBody());
+            if (other != null) {
+                log.info("Endpoint rejected {}; retrying with {}", tokenParam, other);
+                tokenParam = other;
+                response = post(settings, systemPrompt, userPrompt, jsonMode, tokenParam);
+                if (!response.getStatusCode().isError()) {
+                    tokenParamByEndpoint.put(endpointKey, tokenParam);
+                }
+            }
+        }
 
         if (jsonMode && response.getStatusCode().isError() && mentionsResponseFormat(response.getBody())) {
             log.info("Endpoint rejected response_format; retrying without JSON mode");
-            response = post(settings, systemPrompt, userPrompt, false);
+            response = post(settings, systemPrompt, userPrompt, false, tokenParam);
         }
         if (response.getStatusCode().isError()) {
             throw new LlmException(describeError(response));
@@ -77,14 +102,14 @@ public class OpenAiCompatibleClient {
     }
 
     private ResponseEntity<String> post(LlmSettings settings, String systemPrompt, String userPrompt,
-                                        boolean jsonMode) {
+                                        boolean jsonMode, String tokenParam) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", settings.model());
         payload.put("messages", List.of(
                 Map.of("role", "system", "content", systemPrompt),
                 Map.of("role", "user", "content", userPrompt)));
         payload.put("temperature", settings.temperature());
-        payload.put("max_tokens", settings.maxOutputTokens());
+        payload.put(tokenParam, settings.maxOutputTokens());
         if (jsonMode) {
             payload.put("response_format", Map.of("type", "json_object"));
         }
@@ -158,6 +183,21 @@ public class OpenAiCompatibleClient {
         } catch (Exception ex) {
             throw new LlmException("Could not read the response from the LLM endpoint: " + ex.getMessage(), ex);
         }
+    }
+
+    /**
+     * If the error says the parameter we sent is unsupported and names the other one,
+     * returns the other; otherwise null (the failure is something else).
+     */
+    private static String otherTokenParam(String sent, String body) {
+        if (body == null) {
+            return null;
+        }
+        if (MAX_TOKENS.equals(sent)) {
+            return body.contains(MAX_COMPLETION_TOKENS) ? MAX_COMPLETION_TOKENS : null;
+        }
+        // "max_tokens" is not a substring of "max_completion_tokens", so this is unambiguous.
+        return body.contains(MAX_TOKENS) ? MAX_TOKENS : null;
     }
 
     private static boolean mentionsResponseFormat(String body) {

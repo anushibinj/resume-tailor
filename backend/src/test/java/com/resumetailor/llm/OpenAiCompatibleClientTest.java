@@ -91,6 +91,44 @@ class OpenAiCompatibleClientTest {
     }
 
     @Test
+    void retriesWithMaxCompletionTokensAndRemembersIt() {
+        String url = "https://api.example.com/v1/chat/completions";
+        server.expect(once(), requestTo(url))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"max_tokens\"")))
+                .andRespond(withBadRequest()
+                        .body("{\"error\": {\"message\": \"Unsupported parameter: 'max_tokens' is not supported "
+                                + "with this model. Use 'max_completion_tokens' instead.\"}}")
+                        .contentType(MediaType.APPLICATION_JSON));
+        server.expect(twice(), requestTo(url))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"max_completion_tokens\"")))
+                .andRespond(withSuccess(COMPLETION, MediaType.APPLICATION_JSON));
+
+        client.chat(settings(), "system", "user", false);
+        // Second call goes straight to the learned field, with no wasted 400.
+        client.chat(settings(), "system", "user", false);
+
+        server.verify();
+    }
+
+    @Test
+    void fallsBackToMaxTokensWhenAnEndpointRejectsMaxCompletionTokens() {
+        String url = "https://api.example.com/v1/chat/completions";
+        server.expect(once(), requestTo(url))
+                .andRespond(withBadRequest()
+                        .body("{\"error\": {\"message\": \"Use 'max_completion_tokens' instead.\"}}")
+                        .contentType(MediaType.APPLICATION_JSON));
+        server.expect(once(), requestTo(url))
+                .andRespond(withBadRequest()
+                        .body("{\"error\": {\"message\": \"Unknown field max_tokens is required\"}}")
+                        .contentType(MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> client.chat(settings(), "system", "user", false))
+                .isInstanceOf(LlmException.class)
+                .hasMessageContaining("400");
+        server.verify();
+    }
+
+    @Test
     void surfacesTheProvidersOwnErrorMessage() {
         server.expect(twice(), requestTo("https://api.example.com/v1/chat/completions"))
                 .andRespond(withUnauthorizedRequest()
