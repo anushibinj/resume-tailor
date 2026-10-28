@@ -40,7 +40,7 @@ export default function RunsPage() {
 
   const confirmDelete = (run: RunSummary) => {
     const label = run.role ? `the run for ${run.role}` : "this run";
-    if (window.confirm(`Delete ${label}? This removes its history, diff and any compiled PDF. This can't be undone.`)) {
+    if (window.confirm(`Delete ${label}? This removes its history, diff and any saved PDFs. This can't be undone.`)) {
       remove.mutate(run.id);
     }
   };

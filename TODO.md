@@ -30,6 +30,15 @@ decisions stays readable.
       reports the missing file — switch the base in `docker/tex/Dockerfile` to
       `texlive/texlive:latest` and rebuild.
 
+- [ ] **`SchemaValidationIT` after `V7__stored_pdfs.sql`.** The migration renames
+      `artifacts.file_path` to `storage_key`, widens the `kind` check to `UPLOADED_PDF` and
+      adds `original_filename`. It was written without Docker available, so run
+      `mvn verify -Pintegration` once to prove Flyway and the `Artifact` entity agree — in
+      particular that Postgres named the original inline check `artifacts_kind_check`.
+- [ ] **S3 storage against a real bucket.** `S3FileStorage` is unit-tested against a mocked
+      client only. Try `STORAGE_TYPE=s3` with MinIO (`S3_ENDPOINT=http://localhost:9000`,
+      `S3_PATH_STYLE_ACCESS=true`) or AWS: compile, upload, download, delete a run.
+
 ## v2 — multi-user
 
 - [x] Registration and login. Google Sign-In issues the app's own JWT; `SingleUserProvider`

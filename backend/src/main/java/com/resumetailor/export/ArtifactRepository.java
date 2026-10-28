@@ -12,5 +12,7 @@ public interface ArtifactRepository extends JpaRepository<Artifact, UUID> {
 
     List<Artifact> findAllByRunId(UUID runId);
 
+    List<Artifact> findAllByRunIdAndKind(UUID runId, String kind);
+
     void deleteAllByRunId(UUID runId);
 }

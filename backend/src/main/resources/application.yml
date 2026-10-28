@@ -69,7 +69,21 @@ resume-tailor:
     compile-timeout-seconds: ${PDF_TIMEOUT_SECONDS:120}
     memory-limit: ${PDF_MEMORY_LIMIT:1g}
     cpu-limit: ${PDF_CPU_LIMIT:2}
-    artifact-path: ${PDF_ARTIFACT_PATH:./artifacts}
+  storage:
+    # Where compiled and uploaded PDFs are kept: "local" (a directory) or "s3".
+    type: ${STORAGE_TYPE:local}
+    # PDF_ARTIFACT_PATH is the name this setting had before storage was configurable.
+    local-path: ${STORAGE_LOCAL_PATH:${PDF_ARTIFACT_PATH:./artifacts}}
+    # Largest PDF a user may upload for a run.
+    max-upload-size: ${UPLOAD_PDF_MAX_SIZE:10MB}
+    s3:
+      bucket: ${S3_BUCKET:}
+      region: ${S3_REGION:us-east-1}
+      endpoint: ${S3_ENDPOINT:}
+      path-style-access: ${S3_PATH_STYLE_ACCESS:false}
+      access-key-id: ${S3_ACCESS_KEY_ID:}
+      secret-access-key: ${S3_SECRET_ACCESS_KEY:}
+      key-prefix: ${S3_KEY_PREFIX:}
 
 logging:
   level:

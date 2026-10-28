@@ -189,7 +189,16 @@ public class TailoringService {
         return toDetail(require(id));
     }
 
-    /** Removes the run's own DB row (its children cascade) and the compiled PDF it left on disk. */
+    /**
+     * Fails with 404 unless the run exists and belongs to the caller. For callers that only
+     * need ownership settled, without building the whole {@link RunDetail}.
+     */
+    @Transactional(readOnly = true)
+    public void requireOwned(UUID id) {
+        require(id);
+    }
+
+    /** Removes the run's own DB row (its children cascade) and the PDFs it left in storage. */
     @Transactional
     public void deleteRun(UUID id) {
         TailoringRun run = require(id);

@@ -11,7 +11,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param compileTimeoutSeconds hard wall-clock cap; a runaway LaTeX macro must not hang the server
  * @param memoryLimit           passed to docker --memory
  * @param cpuLimit              passed to docker --cpus
- * @param artifactPath          directory where compiled PDFs are kept
  */
 @ConfigurationProperties(prefix = "resume-tailor.pdf")
 public record PdfProperties(
@@ -20,6 +19,5 @@ public record PdfProperties(
         String image,
         int compileTimeoutSeconds,
         String memoryLimit,
-        String cpuLimit,
-        String artifactPath) {
+        String cpuLimit) {
 }

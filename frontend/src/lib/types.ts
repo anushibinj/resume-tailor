@@ -189,6 +189,19 @@ export interface RunDetail {
   finishedAt: string | null;
 }
 
+/** A PDF kept with a run. `originalFilename` is null for one the app compiled. */
+export interface StoredPdf {
+  sizeBytes: number;
+  originalFilename: string | null;
+  storedAt: string;
+}
+
+/** The PDFs kept with a run; either is null when there is none. */
+export interface StoredPdfs {
+  compiled: StoredPdf | null;
+  uploaded: StoredPdf | null;
+}
+
 export interface CreateRunRequest {
   resumeId?: string | null;
   jobDescriptionId?: string | null;
