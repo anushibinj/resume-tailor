@@ -8,6 +8,7 @@ import '../state/providers.dart';
 import '../theme/app_theme.dart';
 import '../util/file_share.dart';
 import '../util/format.dart';
+import '../widgets/confirm.dart';
 import '../widgets/coverage_meter.dart';
 import '../widgets/job_listing_link.dart';
 import '../widgets/keyword_margin.dart';
@@ -54,6 +55,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
   bool _exportingSource = false;
   bool _exportingPdf = false;
   bool _removing = false;
+  bool _rerunning = false;
 
   // Summary length moves are sent one after another so they reach the server in the order
   // they were made; the run is refetched once the last one lands.
@@ -160,6 +162,25 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
     await ref.read(fileSharerProvider).share(file);
   });
 
+  /// Redoes the whole run from its saved resume and posting. The server answers with the
+  /// run back at PENDING, so replacing it on screen restarts the polling.
+  Future<void> _rerun() async {
+    if (!await confirmDestructive(
+      context,
+      "Run this again? This replaces the last run's data — the tailored resume, summary options, "
+      'requirement check and any additions you accepted — with fresh results. Saved PDFs are kept, '
+      'but a compiled PDF will be out of date until you recompile.',
+      confirmLabel: 'Run again',
+    )) {
+      return;
+    }
+    await _busy((v) => _rerunning = v, () async {
+      _run.replace(await _api.rerun(_id));
+      // History shows the run's status too.
+      ref.invalidate(runsProvider);
+    });
+  }
+
   Future<void> _delete(RunDetail run) async {
     setState(() => _removing = true);
     final deleted = await confirmAndDeleteRun(context, ref, run.id);
@@ -177,6 +198,14 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
       appBar: AppBar(
         title: const Text('Run'),
         actions: [
+          // Hidden while the rewrite is still in progress, like the web's Retry button.
+          if (data != null && !data.isRewriting)
+            IconButton(
+              tooltip: 'Run again',
+              color: context.palette.inkSoft,
+              onPressed: _rerunning ? null : _rerun,
+              icon: _rerunning ? const Spinner() : const Icon(Icons.refresh),
+            ),
           if (data != null)
             IconButton(
               tooltip: 'Delete run',
@@ -552,13 +581,13 @@ class _WorkingNotice extends StatelessWidget {
   }
 }
 
-class _FailureNotice extends ConsumerWidget {
+class _FailureNotice extends StatelessWidget {
   const _FailureNotice({required this.message});
 
   final String? message;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final p = context.palette;
     final style = TextStyle(fontSize: 14, color: p.inkSoft);
     return Panel(
@@ -589,9 +618,8 @@ class _FailureNotice extends ConsumerWidget {
                   children: [
                     Text('Your resume and the posting are both saved — check your model in ', style: style),
                     InlineLink('Settings', onTap: () => openSettings(context)),
-                    Text(' and ', style: style),
-                    InlineLink('run it again', onTap: () => goToTab(context, ref, ShellTab.tailor)),
-                    Text('.', style: style),
+                    // Retry is the circular-arrow button in the app bar.
+                    Text(' and use Retry (the circular arrow at the top) to run it again.', style: style),
                   ],
                 ),
               ],
