@@ -87,7 +87,7 @@ class SummaryLength extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Summary length', style: heading),
+              Flexible(child: Text('Summary length', style: heading)),
               Semantics(
                 liveRegion: true,
                 child: Text('≈ ${shown.lines} lines', style: TextStyle(fontSize: 14, color: p.ink)),

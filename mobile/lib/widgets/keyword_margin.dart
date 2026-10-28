@@ -119,9 +119,11 @@ class KeywordMargin extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: p.ink),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: p.ink),
+              ),
             ),
             Text(
               gaps.isEmpty ? 'all covered' : '${gaps.length} to add',
