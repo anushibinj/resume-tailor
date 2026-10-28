@@ -12,6 +12,7 @@ import '../widgets/coverage_meter.dart';
 import '../widgets/job_listing_link.dart';
 import '../widgets/keyword_margin.dart';
 import '../widgets/section_diff_view.dart';
+import '../widgets/stored_pdfs.dart';
 import '../widgets/summary_length.dart';
 import '../widgets/toast.dart';
 import '../widgets/ui.dart';
@@ -154,6 +155,8 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
   Future<void> _exportPdf() => _busy((v) => _exportingPdf = v, () async {
     final file = await _api.compilePdf(_id);
     toastSuccess('PDF compiled');
+    // The compile also replaced the stored copy shown in the "Saved PDFs" panel.
+    ref.invalidate(storedPdfsProvider(_id));
     await ref.read(fileSharerProvider).share(file);
   });
 
@@ -224,6 +227,19 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
             onSelect: (lines) => _selectSummary(data, lines),
             onGenerate: _generateSummary,
             generating: _generating,
+          ),
+          const SizedBox(height: 20),
+          // The web keeps this in the sidebar beside the document; here it sits with the
+          // other things about the finished resume, above the tabs.
+          Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Saved PDFs', style: AppFonts.serif(TextStyle(fontSize: 18, color: context.palette.ink))),
+                const SizedBox(height: 16),
+                StoredPdfsPanel(runId: _id, pdfEnabled: ref.watch(pdfAvailableProvider(_id)).value != false),
+              ],
+            ),
           ),
           const SizedBox(height: 20),
           _tabs(),
