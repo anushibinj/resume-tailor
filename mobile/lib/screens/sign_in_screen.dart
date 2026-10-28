@@ -44,7 +44,11 @@ class SignInScreen extends ConsumerWidget {
                       ),
                     if (state.error != null) ...[
                       const SizedBox(height: 16),
-                      Text(state.error!, textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: p.strike)),
+                      Text(
+                        state.error!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 14, color: p.strike),
+                      ),
                     ],
                   ],
                 ),
@@ -84,8 +88,13 @@ class _GoogleButton extends StatelessWidget {
           if (busy)
             const Spinner(size: 18)
           else
-            Text('G', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: p.pencil)),
-          const Text('Sign in with Google', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+            Text(
+              'G',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: p.pencil),
+            ),
+          const Flexible(
+            child: Text('Sign in with Google', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+          ),
         ],
       ),
     );
