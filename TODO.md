@@ -30,6 +30,12 @@ decisions stays readable.
       reports the missing file — switch the base in `docker/tex/Dockerfile` to
       `texlive/texlive:latest` and rebuild.
 
+- [ ] **The mobile app on a real phone.** `flutter analyze`, 52 widget/unit tests against a
+      fake API, and an Android debug APK build all pass, but Google Sign-In needs the
+      Android / iOS OAuth clients from `mobile/README.md`, which only you can create, and
+      the iOS build needs a Mac with Xcode. Sign in, tailor a posting and export a PDF on
+      a device.
+
 ## v2 — multi-user
 
 - [x] Registration and login. Google Sign-In issues the app's own JWT; `SingleUserProvider`
