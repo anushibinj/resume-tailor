@@ -13,6 +13,7 @@ import type {
   RunSummary,
   SaveLlmProfileRequest,
   SaveResumeRequest,
+  StoredPdfs,
   SuggestionStatus,
   TestConnectionResponse,
 } from "./types";
@@ -201,5 +202,23 @@ export const api = {
     pdfAvailable: (id: string) => request<{ enabled: boolean }>(`/api/runs/${id}/pdf/available`),
     downloadSource: (id: string) => download(`/api/runs/${id}/export`),
     compilePdf: (id: string) => download(`/api/runs/${id}/pdf`, { method: "POST" }),
+    /** PDFs kept in the backend's storage (local disk or S3) alongside the run. */
+    pdfs: {
+      list: (id: string) => request<StoredPdfs>(`/api/runs/${id}/pdfs`),
+      /** The last compiled PDF, as stored -- no recompile. */
+      downloadCompiled: (id: string) => download(`/api/runs/${id}/pdf`),
+      /**
+       * Sends the file as the raw request body rather than multipart (the API has none);
+       * its name rides along as a query parameter, for display only.
+       */
+      upload: (id: string, file: File) =>
+        request<StoredPdfs>(`/api/runs/${id}/pdfs/uploaded?filename=${encodeURIComponent(file.name)}`, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": "application/pdf" },
+        }),
+      downloadUploaded: (id: string) => download(`/api/runs/${id}/pdfs/uploaded`),
+      removeUploaded: (id: string) => request<StoredPdfs>(`/api/runs/${id}/pdfs/uploaded`, { method: "DELETE" }),
+    },
   },
 };

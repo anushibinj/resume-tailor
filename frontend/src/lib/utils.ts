@@ -29,3 +29,9 @@ export function formatRelative(value: string | null | undefined) {
   if (days < 30) return `${days}d ago`;
   return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
+
+export function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
