@@ -95,6 +95,8 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> signOut() async {
+    // Several requests can come back 401 together; only the first needs to sign out.
+    if (state is Unauthenticated && ref.read(apiClientProvider).tokens.token == null) return;
     await ref.read(apiClientProvider).tokens.clear();
     await ref.read(googleAuthProvider).signOut();
     state = const Unauthenticated();
@@ -110,6 +112,17 @@ final currentUserIdProvider = Provider<String?>((ref) {
   return auth is Authenticated ? auth.user.id : null;
 });
 
+/// Thrown instead of making a request once there is no signed-in user: the screens that
+/// would show the result are about to be replaced by the sign-in gate, and a request
+/// without a token would only come back 401.
+class SignedOut implements Exception {
+  const SignedOut();
+}
+
+void _requireUser(Ref ref) {
+  if (ref.watch(currentUserIdProvider) == null) throw const SignedOut();
+}
+
 // --- theme ---
 
 /// Light / dark / follow the system, remembered across launches. Defaults to the system
@@ -119,10 +132,10 @@ class ThemeModeController extends Notifier<ThemeMode> {
 
   @override
   ThemeMode build() => switch (ref.watch(sharedPreferencesProvider)?.getString(_key)) {
-        'light' => ThemeMode.light,
-        'dark' => ThemeMode.dark,
-        _ => ThemeMode.system,
-      };
+    'light' => ThemeMode.light,
+    'dark' => ThemeMode.dark,
+    _ => ThemeMode.system,
+  };
 
   /// Flips whatever is showing now, so the first tap always visibly changes something.
   void toggle(Brightness showing) {
@@ -151,30 +164,30 @@ final shellTabProvider = NotifierProvider<ShellTabController, ShellTab>(ShellTab
 // --- data ---
 
 final resumesProvider = FutureProvider<List<ResumeSummary>>((ref) {
-  ref.watch(currentUserIdProvider);
+  _requireUser(ref);
   return ref.watch(apiClientProvider).listResumes();
 });
 
 final profilesProvider = FutureProvider<List<LlmProfile>>((ref) {
-  ref.watch(currentUserIdProvider);
+  _requireUser(ref);
   return ref.watch(apiClientProvider).listProfiles();
 });
 
 /// Keyed by page size: Home shows the latest 5, History the latest 50.
 final runsProvider = FutureProvider.family<PageOf<RunSummary>, int>((ref, size) {
-  ref.watch(currentUserIdProvider);
+  _requireUser(ref);
   return ref.watch(apiClientProvider).listRuns(size: size);
 });
 
 final questionsProvider = FutureProvider.autoDispose.family<PageOf<ResumeQuestion>, String>((ref, resumeId) {
-  ref.watch(currentUserIdProvider);
+  _requireUser(ref);
   return ref.watch(apiClientProvider).questionHistory(resumeId);
 });
 
 /// PDF export can be switched off entirely (PDF_ENABLED=false); the button is hidden
 /// rather than offering something that will only ever return an error.
 final pdfAvailableProvider = FutureProvider.family<bool, String>((ref, runId) {
-  ref.watch(currentUserIdProvider);
+  _requireUser(ref);
   return ref.watch(apiClientProvider).pdfAvailable(runId);
 });
 
@@ -190,7 +203,7 @@ class RunNotifier extends AsyncNotifier<RunDetail> {
 
   @override
   Future<RunDetail> build() async {
-    ref.watch(currentUserIdProvider);
+    _requireUser(ref);
     ref.onDispose(() => _timer?.cancel());
     final run = await ref.read(apiClientProvider).getRun(id);
     _schedule(run);
