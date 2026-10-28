@@ -277,7 +277,7 @@ class FakeBackend {
         return _json(_page([for (final r in runs.values.toList().reversed) _runSummary(r)]));
       case ['runs'] when method == 'POST':
         final json = body as Json;
-        if ((json['jdText'] as String).trim().isEmpty) {
+        if ((json['jdText'] as String).trim().isEmpty || (json['jdText'] as String).contains('reject-me')) {
           return _error(400, 'Validation failed', {'jdText': 'must not be blank'});
         }
         final run = addRun(status: 'PENDING', role: json['role'] ?? 'Untitled', company: json['company']);

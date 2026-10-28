@@ -87,7 +87,7 @@ Future<void> settle(WidgetTester tester, {int frames = 12}) async {
 }
 
 Future<void> tapText(WidgetTester tester, String text) async {
-  final finder = find.text(text).last;
+  final finder = find.text(text, findRichText: true).last;
   await tester.ensureVisible(finder);
   await tester.pump();
   await tester.tap(finder);
