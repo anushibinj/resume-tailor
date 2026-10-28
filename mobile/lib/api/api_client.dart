@@ -59,13 +59,24 @@ class ApiClient {
   /// auth gate can send the user back to sign-in instead of every caller checking status.
   void Function()? onUnauthorized;
 
-  Future<http.Response> _send(String method, String path, {Object? body, bool authenticated = true}) async {
+  /// [body] is sent as JSON; [rawBody] as-is, with [rawContentType] (a file upload).
+  Future<http.Response> _send(
+    String method,
+    String path, {
+    Object? body,
+    Uint8List? rawBody,
+    String? rawContentType,
+    bool authenticated = true,
+  }) async {
     final token = tokens.token;
     final request = http.Request(method, Uri.parse('$baseUrl$path'));
     if (body != null) {
       request.headers['Content-Type'] = 'application/json';
       // Encoded to bytes up front so the request carries a Content-Length.
       request.bodyBytes = utf8.encode(jsonEncode(body));
+    } else if (rawBody != null) {
+      request.headers['Content-Type'] = rawContentType ?? 'application/octet-stream';
+      request.bodyBytes = rawBody;
     }
     if (token != null && authenticated && !_isPublicAuthEndpoint(path)) {
       request.headers['Authorization'] = 'Bearer $token';
@@ -222,4 +233,28 @@ class ApiClient {
   Future<DownloadedFile> downloadSource(String id) => _download('GET', '/api/runs/$id/export');
 
   Future<DownloadedFile> compilePdf(String id) => _download('POST', '/api/runs/$id/pdf');
+
+  // --- PDFs kept in the backend's storage (local disk or S3) alongside the run ---
+
+  Future<StoredPdfs> storedPdfs(String id) async => StoredPdfs.fromJson(await _object('GET', '/api/runs/$id/pdfs'));
+
+  /// The last compiled PDF, as stored -- no recompile.
+  Future<DownloadedFile> downloadCompiledPdf(String id) => _download('GET', '/api/runs/$id/pdf');
+
+  /// Sends the file as the raw request body rather than multipart (the API has none); its
+  /// name rides along as a query parameter, for display only.
+  Future<StoredPdfs> uploadPdf(String id, Uint8List bytes, String filename) async {
+    final response = await _send(
+      'PUT',
+      '/api/runs/$id/pdfs/uploaded?filename=${Uri.encodeQueryComponent(filename)}',
+      rawBody: bytes,
+      rawContentType: 'application/pdf',
+    );
+    return StoredPdfs.fromJson(jsonDecode(utf8.decode(response.bodyBytes)) as Json);
+  }
+
+  Future<DownloadedFile> downloadUploadedPdf(String id) => _download('GET', '/api/runs/$id/pdfs/uploaded');
+
+  Future<StoredPdfs> removeUploadedPdf(String id) async =>
+      StoredPdfs.fromJson(await _object('DELETE', '/api/runs/$id/pdfs/uploaded'));
 }
