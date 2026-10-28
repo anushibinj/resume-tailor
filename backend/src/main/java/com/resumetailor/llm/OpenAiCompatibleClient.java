@@ -19,6 +19,8 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Talks to any endpoint exposing OpenAI's {@code POST /chat/completions}.
@@ -28,6 +30,8 @@ import java.util.Map;
  *   <li>{@code response_format: json_object} is requested when we need JSON, but a
  *       server that rejects the field gets one automatic retry without it -- several
  *       local runtimes 400 on unknown fields.</li>
+ *   <li>The output limit is sent as {@code max_tokens}, falling back to
+ *       {@code max_completion_tokens} (and remembered) for models that reject it.</li>
  *   <li>HTTP errors are surfaced with the provider's own message body, because the
  *       useful part ("model not found", "insufficient quota") lives there.</li>
  * </ul>
@@ -38,8 +42,15 @@ public class OpenAiCompatibleClient {
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(20);
 
+    private static final String MAX_TOKENS = "max_tokens";
+    private static final String MAX_COMPLETION_TOKENS = "max_completion_tokens";
+
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
+    /** Which output-limit field each endpoint+model accepted, learned from earlier calls. */
+    private final Map<String, String> tokenParamByEndpoint = new ConcurrentHashMap<>();
+    /** Endpoint+model pairs that rejected {@code response_format}; JSON mode is not attempted on them again. */
+    private final Set<String> noJsonModeEndpoints = ConcurrentHashMap.newKeySet();
 
     // Explicit @Autowired: the class has a second constructor for tests, and Spring will
     // not guess between two candidates.
@@ -64,27 +75,71 @@ public class OpenAiCompatibleClient {
     }
 
     public LlmChatResult chat(LlmSettings settings, String systemPrompt, String userPrompt, boolean jsonMode) {
-        ResponseEntity<String> response = post(settings, systemPrompt, userPrompt, jsonMode);
+        String endpointKey = settings.baseUrl() + "|" + settings.model();
+        String tokenParam = tokenParamByEndpoint.getOrDefault(endpointKey, MAX_TOKENS);
+        // A previous call learned this endpoint rejects response_format; skip the doomed request.
+        if (jsonMode && noJsonModeEndpoints.contains(endpointKey)) {
+            log.debug("Skipping JSON mode for {}: the endpoint rejected response_format earlier", endpointKey);
+            jsonMode = false;
+        }
+        long started = System.nanoTime();
+        int attempts = 1;
+        log.info("LLM call starting: model={} jsonMode={} promptChars={} maxOutputTokens={} endpoint={}",
+                settings.model(), jsonMode, systemPrompt.length() + userPrompt.length(),
+                settings.maxOutputTokens(), settings.baseUrl());
+        ResponseEntity<String> response = post(settings, systemPrompt, userPrompt, jsonMode, tokenParam);
+
+        // OpenAI's newer models (o-series, gpt-5...) reject max_tokens and want
+        // max_completion_tokens; older and third-party servers only know max_tokens. Try one,
+        // then the other, and remember what worked so later calls get it right first time.
+        if (response.getStatusCode().isError()) {
+            String other = otherTokenParam(tokenParam, response.getBody());
+            if (other != null) {
+                log.warn("Endpoint rejected {} (HTTP {}); retrying with {} -- this repeats the whole call",
+                        tokenParam, response.getStatusCode().value(), other);
+                tokenParam = other;
+                attempts++;
+                response = post(settings, systemPrompt, userPrompt, jsonMode, tokenParam);
+                // Remember the field unless it was rejected too: a later failure (e.g.
+                // response_format) says nothing against it, and not remembering made every
+                // call repeat this retry.
+                if (!response.getStatusCode().isError() || otherTokenParam(tokenParam, response.getBody()) == null) {
+                    tokenParamByEndpoint.put(endpointKey, tokenParam);
+                }
+            }
+        }
 
         if (jsonMode && response.getStatusCode().isError() && mentionsResponseFormat(response.getBody())) {
-            log.info("Endpoint rejected response_format; retrying without JSON mode");
-            response = post(settings, systemPrompt, userPrompt, false);
+            log.warn("Endpoint rejected response_format (HTTP {}); retrying without JSON mode -- this repeats the whole call",
+                    response.getStatusCode().value());
+            attempts++;
+            noJsonModeEndpoints.add(endpointKey);
+            response = post(settings, systemPrompt, userPrompt, false, tokenParam);
         }
         if (response.getStatusCode().isError()) {
+            log.warn("LLM call failed after {} attempt(s) in {} ms: HTTP {}",
+                    attempts, elapsedMs(started), response.getStatusCode().value());
             throw new LlmException(describeError(response));
         }
-        return parse(response.getBody());
+        LlmChatResult result = parse(response.getBody());
+        log.info("LLM call finished: model={} attempts={} elapsed={} ms promptTokens={} completionTokens={}",
+                result.model(), attempts, elapsedMs(started), result.promptTokens(), result.completionTokens());
+        return result;
+    }
+
+    private static long elapsedMs(long startedNanos) {
+        return (System.nanoTime() - startedNanos) / 1_000_000;
     }
 
     private ResponseEntity<String> post(LlmSettings settings, String systemPrompt, String userPrompt,
-                                        boolean jsonMode) {
+                                        boolean jsonMode, String tokenParam) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", settings.model());
         payload.put("messages", List.of(
                 Map.of("role", "system", "content", systemPrompt),
                 Map.of("role", "user", "content", userPrompt)));
         payload.put("temperature", settings.temperature());
-        payload.put("max_tokens", settings.maxOutputTokens());
+        payload.put(tokenParam, settings.maxOutputTokens());
         if (jsonMode) {
             payload.put("response_format", Map.of("type", "json_object"));
         }
@@ -99,8 +154,11 @@ public class OpenAiCompatibleClient {
             throw new LlmException("Could not build the request for the LLM endpoint: " + ex.getMessage(), ex);
         }
 
+        long sent = System.nanoTime();
+        log.debug("POST {} ({} bytes, {}={}, jsonMode={})",
+                chatCompletionsUrl(settings.baseUrl()), body.length, tokenParam, settings.maxOutputTokens(), jsonMode);
         try {
-            return restClient.post()
+            ResponseEntity<String> response = restClient.post()
                     .uri(chatCompletionsUrl(settings.baseUrl()))
                     .contentType(MediaType.APPLICATION_JSON)
                     .headers(headers -> {
@@ -114,10 +172,15 @@ public class OpenAiCompatibleClient {
                     .onStatus(status -> true, (request, res) -> {
                     })
                     .toEntity(String.class);
+            log.debug("HTTP {} after {} ms ({} response chars)", response.getStatusCode().value(),
+                    elapsedMs(sent), response.getBody() == null ? 0 : response.getBody().length());
+            return response;
         } catch (ResourceAccessException ex) {
+            log.warn("No response from {} after {} ms: {}", settings.baseUrl(), elapsedMs(sent), ex.getMessage());
             throw new LlmException("Could not reach " + settings.baseUrl()
                     + " -- check the base URL is right and the server is running. (" + ex.getMessage() + ")", ex);
         } catch (RestClientException ex) {
+            log.warn("Exchange with {} broke after {} ms: {}", settings.baseUrl(), elapsedMs(sent), ex.getMessage());
             // The server accepted the connection but the exchange broke part-way, e.g. it
             // reset the connection instead of responding. Still the user's endpoint at fault,
             // so it must surface as an LlmException with a message, never as a bare 500.
@@ -158,6 +221,21 @@ public class OpenAiCompatibleClient {
         } catch (Exception ex) {
             throw new LlmException("Could not read the response from the LLM endpoint: " + ex.getMessage(), ex);
         }
+    }
+
+    /**
+     * If the error says the parameter we sent is unsupported and names the other one,
+     * returns the other; otherwise null (the failure is something else).
+     */
+    private static String otherTokenParam(String sent, String body) {
+        if (body == null) {
+            return null;
+        }
+        if (MAX_TOKENS.equals(sent)) {
+            return body.contains(MAX_COMPLETION_TOKENS) ? MAX_COMPLETION_TOKENS : null;
+        }
+        // "max_tokens" is not a substring of "max_completion_tokens", so this is unambiguous.
+        return body.contains(MAX_TOKENS) ? MAX_TOKENS : null;
     }
 
     private static boolean mentionsResponseFormat(String body) {

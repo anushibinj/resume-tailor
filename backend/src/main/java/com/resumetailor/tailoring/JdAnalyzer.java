@@ -38,12 +38,17 @@ public class JdAnalyzer {
                 // A cached extraction from an older prompt is not reusable: the current
                 // prompt rejects the qualifiers and non-skills the old one let through.
                 .filter(cached -> cached.getPromptVersion() >= Prompts.JD_ANALYSIS_VERSION)
-                .map(this::fromCache)
+                .map(cached -> {
+                    log.debug("Job description {} analysis served from cache (prompt v{})",
+                            jd.getId(), cached.getPromptVersion());
+                    return fromCache(cached);
+                })
                 .orElseGet(() -> callAndCache(jd, settings));
     }
 
     private JdAnalysisResult callAndCache(JobDescription jd, LlmSettings settings) {
-        log.debug("Analyzing job description {}", jd.getId());
+        log.info("Job description {} has no usable cached analysis (needs prompt v{}); calling the model",
+                jd.getId(), Prompts.JD_ANALYSIS_VERSION);
         LlmChatResult result = client.chat(
                 settings, Prompts.JD_ANALYSIS_SYSTEM, Prompts.jdAnalysisUser(jd), true);
         JdAnalysisResult analysis = parser.parseJdAnalysis(result.content(), result.model());

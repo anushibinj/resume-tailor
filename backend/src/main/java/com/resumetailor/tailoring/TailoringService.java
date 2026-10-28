@@ -96,6 +96,39 @@ public class TailoringService {
     }
 
     /**
+     * Runs the whole pipeline again on the same row, against the resume and posting it
+     * already snapshotted. Works on a failed run and on a completed one the user wants redone;
+     * the new rewrite, summary options, requirements and additions replace the old ones
+     * ({@link TailoringRunStore#saveRewrite}), including any additions already accepted.
+     */
+    @Transactional
+    public RunDetail requestRerun(UUID id) {
+        TailoringRun run = require(id);
+        if (run.getStatus() == RunStatus.PENDING || run.getStatus() == RunStatus.RUNNING) {
+            throw new BadRequestException("This run is already in progress");
+        }
+        // A failed run's gaps and summary statuses are leftovers, so only a completed run can
+        // have one of those still working; starting over then would race it.
+        if (run.getStatus() == RunStatus.COMPLETED && (isWorking(run.getGapsStatus())
+                || run.getSummaryStatus() == SummaryStatus.PENDING
+                || run.getSummaryStatus() == SummaryStatus.RUNNING)) {
+            throw new BadRequestException("This run is still being checked; try again in a moment");
+        }
+        run.setStatus(RunStatus.PENDING);
+        run.setErrorMessage(null);
+        run.setFinishedAt(null);
+        runRepository.save(run);
+
+        UUID runId = run.getId();
+        afterCommit(() -> runner.run(runId));
+        return toDetail(run);
+    }
+
+    private static boolean isWorking(GapsStatus status) {
+        return status == GapsStatus.PENDING || status == GapsStatus.RUNNING;
+    }
+
+    /**
      * Re-runs the requirement check against the document as it currently stands.
      *
      * <p>Needed for runs whose coverage came from the retired keyword matcher, and after a

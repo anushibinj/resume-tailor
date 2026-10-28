@@ -52,27 +52,41 @@ public class TailoringRunner {
             return;
         }
 
+        long started = System.nanoTime();
+        log.info("Run {} started (format={}, resumeChars={})",
+                runId, context.format(), context.originalBody().length());
+
         SummaryContext summaryContext;
         JdAnalysisResult analysis;
         LlmSettings settings;
         try {
             settings = llmProfileService.resolveSettings(context.llmProfileId());
+            log.debug("Run {} using model {} at {}", runId, settings.model(), settings.baseUrl());
             JobDescription jd = jobDescriptionService.require(context.jobDescriptionId());
+            log.info("Run {} step 1/4: analysing job description", runId);
+            long step = System.nanoTime();
             analysis = jdAnalyzer.analyze(jd, settings);
+            log.info("Run {} step 1/4 done in {} ms ({} requirements)",
+                    runId, since(step), analysis.keywords().size());
+
+            log.info("Run {} step 2/4: rewriting resume", runId);
+            step = System.nanoTime();
 
             LlmChatResult completion = client.chat(
                     settings,
                     Prompts.tailoringSystem(context.format()),
                     Prompts.tailoringUser(analysis, context.originalBody()),
                     true);
+            log.debug("Run {} rewrite reply received in {} ms; parsing", runId, since(step));
             TailorOutput output = parser.parseTailorOutput(completion.content());
 
             summaryContext = store.saveRewrite(
                     runId, output, completion.model(),
                     completion.promptTokens(), completion.completionTokens());
-            log.info("Run {} rewrite saved", runId);
+            log.info("Run {} step 2/4 done in {} ms; rewrite saved (run COMPLETED, {} ms since start)",
+                    runId, since(step), since(started));
         } catch (Exception ex) {
-            log.warn("Run {} failed: {}", runId, ex.getMessage());
+            log.warn("Run {} failed after {} ms: {}", runId, since(started), ex.getMessage());
             store.markFailed(runId, ex.getMessage() == null ? ex.toString() : ex.getMessage());
             return;
         }
@@ -80,6 +94,7 @@ public class TailoringRunner {
         // Before the gap check, so its anchors come from the summary the user will be looking at.
         writeSummary(summaryContext, analysis, settings);
         checkGaps(store.gapContext(runId), analysis, settings);
+        log.info("Run {} pipeline finished in {} ms", runId, since(started));
     }
 
     /** Re-runs only the summary options, from the model's pristine rewrite. */
@@ -88,6 +103,7 @@ public class TailoringRunner {
         SummaryContext context;
         try {
             context = store.beginSummary(runId);
+            log.info("Run {} summary options re-requested", runId);
         } catch (RuntimeException ex) {
             log.error("Could not start summary options for run {}", runId, ex);
             return;
@@ -109,6 +125,7 @@ public class TailoringRunner {
         GapContext context;
         try {
             context = store.beginGapAnalysis(runId);
+            log.info("Run {} gap analysis re-requested", runId);
         } catch (RuntimeException ex) {
             log.error("Could not start gap analysis for run {}", runId, ex);
             return;
@@ -129,11 +146,14 @@ public class TailoringRunner {
      * write the options records an error the user can retry from, and the pipeline goes on.
      */
     private void writeSummary(SummaryContext context, JdAnalysisResult analysis, LlmSettings settings) {
+        log.info("Run {} step 3/4: writing summary options", context.runId());
+        long step = System.nanoTime();
         try {
             store.saveSummary(context.runId(), summaryWriter.write(context, analysis, settings));
-            log.info("Run {} summary options written", context.runId());
+            log.info("Run {} step 3/4 done in {} ms; summary options written", context.runId(), since(step));
         } catch (Exception ex) {
-            log.warn("Summary options for run {} failed: {}", context.runId(), ex.getMessage());
+            log.warn("Summary options for run {} failed after {} ms: {}",
+                    context.runId(), since(step), ex.getMessage());
             store.markSummaryFailed(context.runId(), message(ex));
         }
     }
@@ -143,6 +163,8 @@ public class TailoringRunner {
      * check records its own error for the user to retry rather than failing the run.
      */
     private void checkGaps(GapContext context, JdAnalysisResult analysis, LlmSettings settings) {
+        log.info("Run {} step 4/4: checking gaps", context.runId());
+        long step = System.nanoTime();
         try {
             // Skills already explained for anyone's earlier posting are not asked for again.
             Map<String, String> known = skillDefinitions.descriptionsFor(
@@ -150,15 +172,20 @@ public class TailoringRunner {
             List<JdKeyword> needDescription = analysis.keywords().stream()
                     .filter(k -> !known.containsKey(KeywordNormalizer.normalize(k.keyword())))
                     .toList();
+            log.debug("Run {} gap check: {} requirements, {} already in the glossary, {} to describe, {} additions accepted",
+                    context.runId(), analysis.keywords().size(), known.size(), needDescription.size(),
+                    context.alreadyAdded().size());
 
             GapAnalysisResult result = gapAnalyzer.analyze(
                     analysis.keywords(), needDescription, context.originalBody(), context.body(),
                     context.format(), context.alreadyAdded(), settings);
             store.saveGaps(context.runId(), result);
             rememberDescriptions(result);
-            log.info("Run {} gap analysis complete", context.runId());
+            log.info("Run {} step 4/4 done in {} ms; gap analysis complete ({} verdicts)",
+                    context.runId(), since(step), result.verdicts().size());
         } catch (Exception ex) {
-            log.warn("Gap analysis for run {} failed: {}", context.runId(), ex.getMessage());
+            log.warn("Gap analysis for run {} failed after {} ms: {}",
+                    context.runId(), since(step), ex.getMessage());
             store.markGapsFailed(context.runId(), message(ex));
         }
     }
@@ -175,6 +202,10 @@ public class TailoringRunner {
         } catch (Exception ex) {
             log.warn("Could not save skill descriptions: {}", ex.getMessage());
         }
+    }
+
+    private static long since(long startedNanos) {
+        return (System.nanoTime() - startedNanos) / 1_000_000;
     }
 
     private static String message(Exception ex) {
