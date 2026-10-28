@@ -103,7 +103,8 @@ class _AskScreenState extends ConsumerState<AskScreen> {
       children: [
         const PageHeading(
           title: 'Ask about a resume',
-          lede: "Ask one question at a time about a resume you've uploaded -- your core experience, a "
+          lede:
+              "Ask one question at a time about a resume you've uploaded -- your core experience, a "
               "specific skill, how a project might be summarised. Each question is answered on its own, "
               "from that resume alone; there's no back-and-forth to keep track of.",
         ),
@@ -118,10 +119,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
             ),
           )
         else ...[
-          if (noModel) ...[
-            const SetupNotice(noResumes: false, noModel: true),
-            const SizedBox(height: 24),
-          ],
+          if (noModel) ...[const SetupNotice(noResumes: false, noModel: true), const SizedBox(height: 24)],
           Panel(
             child: ResumePicker(
               label: 'Resume',
@@ -157,7 +155,9 @@ class _AskScreenState extends ConsumerState<AskScreen> {
             minLines: 3,
             maxLines: 6,
             textInputAction: TextInputAction.newline,
-            decoration: const InputDecoration(hintText: 'Briefly tell about my core experience and technical strengths'),
+            decoration: const InputDecoration(
+              hintText: 'Briefly tell about my core experience and technical strengths',
+            ),
           ),
         ),
         AppButton(

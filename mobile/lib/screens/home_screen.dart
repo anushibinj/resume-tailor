@@ -24,12 +24,16 @@ class HomeScreen extends ConsumerWidget {
     final ready = !needsResume && !needsModel;
 
     return RefreshIndicator(
-      onRefresh: () => Future.wait([
-        ref.refresh(runsProvider(5).future),
-        ref.refresh(resumesProvider.future),
-        ref.refresh(profilesProvider.future),
-      ]),
+      onRefresh: () => quietly(
+        Future.wait([
+          ref.refresh(runsProvider(5).future),
+          ref.refresh(resumesProvider.future),
+          ref.refresh(profilesProvider.future),
+        ]),
+      ),
       child: ListView(
+        // Pull-to-refresh needs an overscroll even when the list is shorter than the screen.
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: screenPadding,
         children: [
           Text(
@@ -75,7 +79,9 @@ class HomeScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.only(bottom: 12),
             margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.rule))),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: p.rule)),
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -139,10 +145,20 @@ class _Score extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    return Text.rich(TextSpan(children: [
-      TextSpan(text: '${score ?? '—'}', style: AppFonts.serif(TextStyle(fontSize: fontSize, color: p.ink))),
-      TextSpan(text: '%', style: TextStyle(fontSize: 14, color: p.inkFaint)),
-    ]));
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '${score ?? '—'}',
+            style: AppFonts.serif(TextStyle(fontSize: fontSize, color: p.ink)),
+          ),
+          TextSpan(
+            text: '%',
+            style: TextStyle(fontSize: 14, color: p.inkFaint),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -165,7 +181,9 @@ class _SetupStep extends StatelessWidget {
           Row(
             spacing: 8,
             children: [
-              Flexible(child: Text(title, style: AppFonts.serif(TextStyle(fontSize: 18, color: p.ink)))),
+              Flexible(
+                child: Text(title, style: AppFonts.serif(TextStyle(fontSize: 18, color: p.ink))),
+              ),
               if (done) const Tag('Done', tone: TagTone.pencil),
             ],
           ),

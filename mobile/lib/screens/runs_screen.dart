@@ -68,8 +68,10 @@ class _RunsScreenState extends ConsumerState<RunsScreen> {
     );
 
     return RefreshIndicator(
-      onRefresh: () => ref.refresh(runsProvider(50).future),
+      onRefresh: () => quietly(ref.refresh(runsProvider(50).future)),
       child: ListView(
+        // Pull-to-refresh needs an overscroll even when the list is shorter than the screen.
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: screenPadding,
         children: [
           PageHeading(
@@ -121,13 +123,20 @@ class _RunsScreenState extends ConsumerState<RunsScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text.rich(TextSpan(children: [
+                          Text.rich(
                             TextSpan(
-                              text: '${run.matchScore}',
-                              style: AppFonts.serif(TextStyle(fontSize: 24, height: 1, color: p.ink)),
+                              children: [
+                                TextSpan(
+                                  text: '${run.matchScore}',
+                                  style: AppFonts.serif(TextStyle(fontSize: 24, height: 1, color: p.ink)),
+                                ),
+                                TextSpan(
+                                  text: '%',
+                                  style: TextStyle(fontSize: 14, color: p.inkFaint),
+                                ),
+                              ],
                             ),
-                            TextSpan(text: '%', style: TextStyle(fontSize: 14, color: p.inkFaint)),
-                          ])),
+                          ),
                           const SizedBox(height: 4),
                           Text('covered', style: TextStyle(fontSize: 12, color: p.inkFaint)),
                         ],

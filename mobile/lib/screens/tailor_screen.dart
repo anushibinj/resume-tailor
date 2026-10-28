@@ -44,13 +44,17 @@ class _TailorScreenState extends ConsumerState<TailorScreen> {
   Future<void> _start() async {
     setState(() => _starting = true);
     try {
-      final run = await ref.read(apiClientProvider).createRun(CreateRunRequest(
-            resumeId: _resumeId,
-            jdText: _jd.text,
-            company: _trimmed(_company),
-            role: _trimmed(_role),
-            jobUrl: _trimmed(_jobUrl),
-          ));
+      final run = await ref
+          .read(apiClientProvider)
+          .createRun(
+            CreateRunRequest(
+              resumeId: _resumeId,
+              jdText: _jd.text,
+              company: _trimmed(_company),
+              role: _trimmed(_role),
+              jobUrl: _trimmed(_jobUrl),
+            ),
+          );
       ref.invalidate(runsProvider);
       // The web client leaves this page for the run; here the tab stays, so it is cleared
       // for the next posting instead.
@@ -86,13 +90,11 @@ class _TailorScreenState extends ConsumerState<TailorScreen> {
       children: [
         const PageHeading(
           title: 'Tailor to a posting',
-          lede: "Paste the job description. You'll get a rewritten copy of your resume, every edit "
+          lede:
+              "Paste the job description. You'll get a rewritten copy of your resume, every edit "
               "marked up for review, and a list of what the posting wants that you can't currently back up.",
         ),
-        if (blocked) ...[
-          SetupNotice(noResumes: noResumes, noModel: noModel),
-          const SizedBox(height: 24),
-        ],
+        if (blocked) ...[SetupNotice(noResumes: noResumes, noModel: noModel), const SizedBox(height: 24)],
         Panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -107,12 +109,18 @@ class _TailorScreenState extends ConsumerState<TailorScreen> {
               Field(
                 label: 'Company',
                 hint: 'Optional — read from the posting if left blank.',
-                child: TextField(controller: _company, decoration: const InputDecoration(hintText: 'Acme')),
+                child: TextField(
+                  controller: _company,
+                  decoration: const InputDecoration(hintText: 'Acme'),
+                ),
               ),
               Field(
                 label: 'Role',
                 hint: 'Optional.',
-                child: TextField(controller: _role, decoration: const InputDecoration(hintText: 'Senior Backend Engineer')),
+                child: TextField(
+                  controller: _role,
+                  decoration: const InputDecoration(hintText: 'Senior Backend Engineer'),
+                ),
               ),
               Field(
                 label: 'Job URL',

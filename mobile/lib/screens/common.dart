@@ -11,6 +11,10 @@ import 'navigation.dart';
 /// Screen padding: the web's `px-6 py-10` main area, scaled for a phone.
 const screenPadding = EdgeInsets.fromLTRB(16, 20, 16, 32);
 
+/// For `RefreshIndicator.onRefresh`: a failed refresh is already on screen as the
+/// provider's error state, so the future itself must not rethrow.
+Future<void> quietly(Future<Object?> future) => future.then<void>((_) {}, onError: (Object _) {});
+
 /// "Add a resume first — go to Resumes. Connect a model first — go to Settings."
 class SetupNotice extends ConsumerWidget {
   const SetupNotice({super.key, required this.noResumes, required this.noModel});
@@ -55,7 +59,13 @@ class SetupNotice extends ConsumerWidget {
 
 /// The "Start from" / "Resume" picker shared by Tailor and Ask.
 class ResumePicker extends StatelessWidget {
-  const ResumePicker({super.key, required this.resumes, required this.value, required this.onChanged, required this.label});
+  const ResumePicker({
+    super.key,
+    required this.resumes,
+    required this.value,
+    required this.onChanged,
+    required this.label,
+  });
 
   final List<ResumeSummary> resumes;
   final String? value;
@@ -131,10 +141,16 @@ class RoleTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     return Text.rich(
-      TextSpan(children: [
-        TextSpan(text: role ?? 'Untitled role'),
-        if (company != null) TextSpan(text: ' at $company', style: TextStyle(color: p.inkSoft)),
-      ]),
+      TextSpan(
+        children: [
+          TextSpan(text: role ?? 'Untitled role'),
+          if (company != null)
+            TextSpan(
+              text: ' at $company',
+              style: TextStyle(color: p.inkSoft),
+            ),
+        ],
+      ),
       maxLines: maxLines,
       overflow: maxLines == null ? null : TextOverflow.ellipsis,
       style: AppFonts.serif(TextStyle(fontSize: fontSize, height: 1.25, color: p.ink)),

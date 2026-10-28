@@ -147,15 +147,15 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
   Future<void> _recheck() => _busy((v) => _rechecking = v, () async => _run.replace(await _api.recheckGaps(_id)));
 
   Future<void> _exportSource() => _busy(
-        (v) => _exportingSource = v,
-        () async => ref.read(fileSharerProvider).share(await _api.downloadSource(_id)),
-      );
+    (v) => _exportingSource = v,
+    () async => ref.read(fileSharerProvider).share(await _api.downloadSource(_id)),
+  );
 
   Future<void> _exportPdf() => _busy((v) => _exportingPdf = v, () async {
-        final file = await _api.compilePdf(_id);
-        toastSuccess('PDF compiled');
-        await ref.read(fileSharerProvider).share(file);
-      });
+    final file = await _api.compilePdf(_id);
+    toastSuccess('PDF compiled');
+    await ref.read(fileSharerProvider).share(file);
+  });
 
   Future<void> _delete(RunDetail run) async {
     setState(() => _removing = true);
@@ -184,26 +184,26 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
         ],
       ),
       body: switch (run) {
-        AsyncValue(:final value?) => RefreshIndicator(
-            onRefresh: _run.refresh,
-            child: _body(value),
-          ),
+        AsyncValue(:final value?) => RefreshIndicator(onRefresh: _run.refresh, child: _body(value)),
         AsyncValue(hasError: true) => ListView(
-            padding: screenPadding,
-            children: [
-              Panel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: 8,
-                  children: [
-                    Text("That run doesn't exist.", style: TextStyle(color: context.palette.ink)),
-                    InlineLink('Back to history', onTap: () => goToTab(context, ref, ShellTab.history)),
-                  ],
-                ),
+          padding: screenPadding,
+          children: [
+            Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 8,
+                children: [
+                  Text("That run doesn't exist.", style: TextStyle(color: context.palette.ink)),
+                  InlineLink('Back to history', onTap: () => goToTab(context, ref, ShellTab.history)),
+                ],
               ),
-            ],
-          ),
-        _ => ListView(padding: screenPadding, children: const [LoadingBlock(label: 'Loading run…')]),
+            ),
+          ],
+        ),
+        _ => ListView(
+          padding: screenPadding,
+          children: const [LoadingBlock(label: 'Loading run…')],
+        ),
       },
     );
   }
@@ -211,6 +211,8 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
   Widget _body(RunDetail data) {
     final p = context.palette;
     return ListView(
+      // Pull-to-refresh needs an overscroll even when the list is shorter than the screen.
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: screenPadding,
       children: [
         _header(data),
@@ -231,11 +233,11 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
             _Tab.requirements => _requirements(data),
             _Tab.source => _SourceView(source: data.tailoredSource ?? ''),
             _Tab.posting => Panel(
-                child: SelectableText(
-                  data.jobDescriptionText ?? '',
-                  style: TextStyle(fontSize: 14, height: 1.6, color: p.inkSoft),
-                ),
+              child: SelectableText(
+                data.jobDescriptionText ?? '',
+                style: TextStyle(fontSize: 14, height: 1.6, color: p.inkSoft),
               ),
+            ),
           },
         ],
       ],
@@ -255,12 +257,18 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.rule))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: p.rule)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           RoleTitle(role: data.role, company: data.company, fontSize: 26),
-          if (data.jobUrl != null) Padding(padding: const EdgeInsets.only(top: 6), child: JobListingLink(url: data.jobUrl)),
+          if (data.jobUrl != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: JobListingLink(url: data.jobUrl),
+            ),
           const SizedBox(height: 8),
           Text(meta, style: TextStyle(fontSize: 14, color: p.inkSoft)),
           if (data.status == RunStatus.completed) ...[
@@ -300,7 +308,9 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
   Widget _tabs() {
     final p = context.palette;
     return Container(
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.rule))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: p.rule)),
+      ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -311,14 +321,9 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: _tab == tab ? p.pencil : Colors.transparent, width: 2),
-                    ),
+                    border: Border(bottom: BorderSide(color: _tab == tab ? p.pencil : Colors.transparent, width: 2)),
                   ),
-                  child: Text(
-                    _tabLabels[tab]!,
-                    style: TextStyle(fontSize: 14, color: _tab == tab ? p.ink : p.inkSoft),
-                  ),
+                  child: Text(_tabLabels[tab]!, style: TextStyle(fontSize: 14, color: _tab == tab ? p.ink : p.inkSoft)),
                 ),
               ),
           ],
@@ -378,7 +383,10 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
       case GapsStatus.pending || GapsStatus.running:
         return Row(
           spacing: 12,
-          children: [const Spinner(), Expanded(child: Text('Checking your resume against the posting…', style: soft))],
+          children: [
+            const Spinner(),
+            Expanded(child: Text('Checking your resume against the posting…', style: soft)),
+          ],
         );
       case GapsStatus.outdated:
         return Column(
@@ -515,7 +523,10 @@ class _WorkingNotice extends StatelessWidget {
                   style: TextStyle(color: p.ink),
                 ),
                 const SizedBox(height: 2),
-                Text('This screen updates itself. Usually 20–60 seconds.', style: TextStyle(fontSize: 14, color: p.inkSoft)),
+                Text(
+                  'This screen updates itself. Usually 20–60 seconds.',
+                  style: TextStyle(fontSize: 14, color: p.inkSoft),
+                ),
               ],
             ),
           ),

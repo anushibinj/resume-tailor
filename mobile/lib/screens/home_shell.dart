@@ -73,11 +73,11 @@ class _SettingsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => IconButton(
-        tooltip: 'Settings',
-        color: context.palette.inkSoft,
-        icon: const Icon(Icons.settings_outlined, size: 20),
-        onPressed: () => openSettings(context),
-      );
+    tooltip: 'Settings',
+    color: context.palette.inkSoft,
+    icon: const Icon(Icons.settings_outlined, size: 20),
+    onPressed: () => openSettings(context),
+  );
 }
 
 class _UserMenu extends ConsumerWidget {

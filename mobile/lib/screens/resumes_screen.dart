@@ -50,7 +50,9 @@ class _ResumesScreenState extends ConsumerState<ResumesScreen> {
 
   Future<void> _openForm({ResumeDetail? editing, PickedResume? picked}) async {
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ResumeFormScreen(editing: editing, picked: picked)),
+      MaterialPageRoute(
+        builder: (_) => ResumeFormScreen(editing: editing, picked: picked),
+      ),
     );
   }
 
@@ -86,13 +88,16 @@ class _ResumesScreenState extends ConsumerState<ResumesScreen> {
     final api = ref.read(apiClientProvider);
 
     return RefreshIndicator(
-      onRefresh: () => ref.refresh(resumesProvider.future),
+      onRefresh: () => quietly(ref.refresh(resumesProvider.future)),
       child: ListView(
+        // Pull-to-refresh needs an overscroll even when the list is shorter than the screen.
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: screenPadding,
         children: [
           PageHeading(
             title: 'Your resumes',
-            lede: 'Keep a few originals — one leaning backend, one leaning leadership — and pick the '
+            lede:
+                'Keep a few originals — one leaning backend, one leaning leadership — and pick the '
                 'closest starting point for each job. Everything you tailor is built from one of these.',
             actions: [
               if (resumes.value?.isNotEmpty ?? false)
@@ -109,7 +114,8 @@ class _ResumesScreenState extends ConsumerState<ResumesScreen> {
           if (resumes.value?.isEmpty ?? false)
             EmptyState(
               title: 'Nothing to tailor from yet',
-              body: 'Upload the .tex or .md file you actually send to employers. The format is detected '
+              body:
+                  'Upload the .tex or .md file you actually send to employers. The format is detected '
                   'for you, and for LaTeX the preamble is kept aside so no model can touch it.',
               action: Wrap(
                 spacing: 8,
@@ -176,7 +182,8 @@ class _ResumesScreenState extends ConsumerState<ResumesScreen> {
                           compact: true,
                           icon: Icons.delete_outline,
                           semanticLabel: 'Delete ${resume.name}',
-                          onPressed: () => _run(resume.id, () => api.deleteResume(resume.id), success: 'Resume deleted'),
+                          onPressed: () =>
+                              _run(resume.id, () => api.deleteResume(resume.id), success: 'Resume deleted'),
                         ),
                       ],
                     ),
@@ -285,7 +292,9 @@ class _ResumeFormScreenState extends ConsumerState<ResumeFormScreen> {
                 enableSuggestions: false,
                 keyboardType: TextInputType.multiline,
                 style: AppFonts.mono(TextStyle(fontSize: 12, height: 1.6, color: p.ink)),
-                decoration: const InputDecoration(hintText: '\\documentclass{article}\n...\n\nor\n\n# Your Name\n## Experience'),
+                decoration: const InputDecoration(
+                  hintText: '\\documentclass{article}\n...\n\nor\n\n# Your Name\n## Experience',
+                ),
               ),
             ),
             const SizedBox(height: 16),

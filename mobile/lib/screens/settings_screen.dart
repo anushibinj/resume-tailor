@@ -70,13 +70,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         label: const Text('Add a connection'),
       ),
       body: RefreshIndicator(
-        onRefresh: () => ref.refresh(profilesProvider.future),
+        onRefresh: () => quietly(ref.refresh(profilesProvider.future)),
         child: ListView(
+          // Pull-to-refresh needs an overscroll even when the list is shorter than the screen.
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: screenPadding.copyWith(bottom: 96),
           children: [
             const PageHeading(
               title: 'Your model',
-              lede: "Resume Tailor doesn't ship with a model. Point it at any endpoint that speaks the "
+              lede:
+                  "Resume Tailor doesn't ship with a model. Point it at any endpoint that speaks the "
                   'OpenAI chat API — hosted or running on your own machine.',
             ),
             if (profiles.isLoading && !profiles.hasValue) const LoadingBlock(),
@@ -84,7 +87,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             if (profiles.value?.isEmpty ?? false)
               const EmptyState(
                 title: 'No model configured',
-                body: "Add a connection to start tailoring. Your API key is encrypted before it's stored "
+                body:
+                    "Add a connection to start tailoring. Your API key is encrypted before it's stored "
                     'and is never sent back to this app.',
               ),
             for (final profile in profiles.value ?? const <LlmProfile>[])
@@ -171,7 +175,12 @@ class _Detail extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: TextStyle(fontSize: 12, color: p.inkFaint)),
-          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: p.inkSoft)),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 14, color: p.inkSoft),
+          ),
         ],
       ),
     );
@@ -244,12 +253,12 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   // Any number in range, never a step: a step grid once rejected valid values like 0.25
   // and 8000 on the web form (see the comment in frontend/src/app/settings/page.tsx).
   String? Function(String?) _range(num min, num max) => (value) {
-        if (value == null || value.trim().isEmpty) return null;
-        final number = num.tryParse(value.trim());
-        if (number == null) return 'Enter a number';
-        if (number < min || number > max) return 'Between $min and $max';
-        return null;
-      };
+    if (value == null || value.trim().isEmpty) return null;
+    final number = num.tryParse(value.trim());
+    if (number == null) return 'Enter a number';
+    if (number < min || number > max) return 'Between $min and $max';
+    return null;
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +296,11 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
             const SizedBox(height: 20),
             Field(
               label: 'Name',
-              child: TextFormField(controller: _name, validator: _required, decoration: const InputDecoration(hintText: 'OpenAI')),
+              child: TextFormField(
+                controller: _name,
+                validator: _required,
+                decoration: const InputDecoration(hintText: 'OpenAI'),
+              ),
             ),
             const SizedBox(height: 16),
             Field(
@@ -329,7 +342,11 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
             Field(
               label: 'Max output tokens',
               hint: 'Must fit your whole resume, or the model shortens it to fit.',
-              child: TextFormField(controller: _maxTokens, keyboardType: numberKeyboard, validator: _range(256, 200000)),
+              child: TextFormField(
+                controller: _maxTokens,
+                keyboardType: numberKeyboard,
+                validator: _range(256, 200000),
+              ),
             ),
             const SizedBox(height: 20),
             Row(
