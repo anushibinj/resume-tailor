@@ -205,6 +205,7 @@ class _GapRow extends StatelessWidget {
                   triggerMode: TooltipTriggerMode.tap,
                   message: keyword.description!,
                   child: Semantics(
+                    container: true,
                     label: 'What is ${keyword.keyword}?',
                     button: true,
                     child: Padding(
