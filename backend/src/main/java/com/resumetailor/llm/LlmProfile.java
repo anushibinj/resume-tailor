@@ -47,6 +47,10 @@ public class LlmProfile extends AuditedEntity {
     @Column(name = "max_output_tokens", nullable = false)
     private Integer maxOutputTokens;
 
+    /** none | minimal | low | medium | high; see {@link LlmProfileService#REASONING_EFFORTS}. */
+    @Column(name = "reasoning_effort", nullable = false, length = 16)
+    private String reasoningEffort = "low";
+
     @Column(name = "is_default", nullable = false)
     private boolean isDefault;
 }

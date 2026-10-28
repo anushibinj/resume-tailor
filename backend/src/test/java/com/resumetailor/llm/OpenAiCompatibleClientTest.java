@@ -36,7 +36,7 @@ class OpenAiCompatibleClientTest {
 
     private static LlmSettings settings() {
         return new LlmSettings("https://api.example.com/v1", "sk-test", "gpt-4o-mini",
-                new BigDecimal("0.20"), 4000);
+                new BigDecimal("0.20"), 4000, "none");
     }
 
     @BeforeEach
@@ -87,6 +87,44 @@ class OpenAiCompatibleClientTest {
         LlmChatResult result = client.chat(settings(), "system", "user", true);
 
         assertThat(result.content()).isEqualTo("{\"ok\": true}");
+        server.verify();
+    }
+
+    @Test
+    void sendsReasoningEffortUnlessNone() {
+        LlmSettings low = new LlmSettings("https://api.example.com/v1", "sk-test", "gpt-5-nano",
+                new BigDecimal("0.20"), 4000, "low");
+        server.expect(once(), requestTo("https://api.example.com/v1/chat/completions"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"reasoning_effort\":\"low\"")))
+                .andRespond(withSuccess(COMPLETION, MediaType.APPLICATION_JSON));
+        server.expect(once(), requestTo("https://api.example.com/v1/chat/completions"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("reasoning_effort"))))
+                .andRespond(withSuccess(COMPLETION, MediaType.APPLICATION_JSON));
+
+        client.chat(low, "system", "user", false);
+        client.chat(settings(), "system", "user", false);
+
+        server.verify();
+    }
+
+    @Test
+    void retriesWithoutReasoningEffortWhenRejectedAndRemembersIt() {
+        String url = "https://api.example.com/v1/chat/completions";
+        LlmSettings low = new LlmSettings("https://api.example.com/v1", "sk-test", "gpt-4o-mini",
+                new BigDecimal("0.20"), 4000, "low");
+        server.expect(once(), requestTo(url))
+                .andRespond(withBadRequest()
+                        .body("{\"error\": {\"message\": \"Unrecognized request argument supplied: reasoning_effort\"}}")
+                        .contentType(MediaType.APPLICATION_JSON));
+        server.expect(twice(), requestTo(url))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("reasoning_effort"))))
+                .andRespond(withSuccess(COMPLETION, MediaType.APPLICATION_JSON));
+
+        client.chat(low, "system", "user", false);
+        client.chat(low, "system", "user", false);
+
         server.verify();
     }
 

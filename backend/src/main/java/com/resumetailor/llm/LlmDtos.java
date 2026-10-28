@@ -5,6 +5,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
@@ -28,6 +29,7 @@ public final class LlmDtos {
             @NotBlank @Size(max = 255) String model,
             @DecimalMin("0.0") @DecimalMax("2.0") BigDecimal temperature,
             @Min(256) @Max(200000) Integer maxOutputTokens,
+            @Pattern(regexp = "none|minimal|low|medium|high") String reasoningEffort,
             Boolean makeDefault) {
     }
 
@@ -39,6 +41,7 @@ public final class LlmDtos {
             String model,
             BigDecimal temperature,
             Integer maxOutputTokens,
+            String reasoningEffort,
             boolean isDefault,
             boolean hasApiKey,
             String apiKeyMask,

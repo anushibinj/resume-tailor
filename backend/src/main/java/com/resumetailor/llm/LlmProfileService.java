@@ -23,6 +23,8 @@ public class LlmProfileService {
 
     private static final BigDecimal DEFAULT_TEMPERATURE = new BigDecimal("0.20");
     private static final int DEFAULT_MAX_OUTPUT_TOKENS = 8000;
+    /** Low: the pipeline's calls are extraction and judgment, and reasoning time is paid for in full. */
+    static final String DEFAULT_REASONING_EFFORT = "low";
 
     private final LlmProfileRepository repository;
     private final CurrentUserProvider currentUser;
@@ -135,7 +137,8 @@ public class LlmProfileService {
                 cipher.decrypt(profile.getApiKeyEncrypted()),
                 profile.getModel(),
                 profile.getTemperature(),
-                profile.getMaxOutputTokens());
+                profile.getMaxOutputTokens(),
+                profile.getReasoningEffort());
     }
 
     @Transactional(readOnly = true)
@@ -160,6 +163,8 @@ public class LlmProfileService {
         profile.setTemperature(request.temperature() != null ? request.temperature() : DEFAULT_TEMPERATURE);
         profile.setMaxOutputTokens(
                 request.maxOutputTokens() != null ? request.maxOutputTokens() : DEFAULT_MAX_OUTPUT_TOKENS);
+        profile.setReasoningEffort(
+                request.reasoningEffort() != null ? request.reasoningEffort() : DEFAULT_REASONING_EFFORT);
     }
 
     private void storeKey(LlmProfile profile, String plaintextKey) {
@@ -190,6 +195,7 @@ public class LlmProfileService {
         profile.setModel(properties.defaultModel());
         profile.setTemperature(properties.defaultTemperature());
         profile.setMaxOutputTokens(properties.defaultMaxOutputTokens());
+        profile.setReasoningEffort(DEFAULT_REASONING_EFFORT);
         profile.setDefault(true);
         storeKey(profile, apiKey.trim());
         repository.save(profile);
@@ -206,6 +212,7 @@ public class LlmProfileService {
                 profile.getModel(),
                 profile.getTemperature(),
                 profile.getMaxOutputTokens(),
+                profile.getReasoningEffort(),
                 profile.isDefault(),
                 hasKey,
                 hasKey && hint != null && !hint.isBlank() ? "••••" + hint : "",

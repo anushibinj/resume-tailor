@@ -132,6 +132,6 @@ class LlmProfileIsolationTest {
 
     private static SaveLlmProfileRequest save(String name, String apiKey) {
         return new SaveLlmProfileRequest(
-                name, "https://api.example.com/v1", apiKey, "test-model", null, null, null);
+                name, "https://api.example.com/v1", apiKey, "test-model", null, null, null, null);
     }
 }

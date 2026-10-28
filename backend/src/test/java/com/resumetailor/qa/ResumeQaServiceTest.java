@@ -59,7 +59,7 @@ class ResumeQaServiceTest {
         when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(llmProfileService.resolveProfileId(any())).thenReturn(PROFILE_ID);
         when(llmProfileService.resolveSettings(PROFILE_ID))
-                .thenReturn(new LlmSettings("https://api.example.com", "key", "gpt-x", BigDecimal.ONE, 500));
+                .thenReturn(new LlmSettings("https://api.example.com", "key", "gpt-x", BigDecimal.ONE, 500, "none"));
     }
 
     private static Resume resume() {

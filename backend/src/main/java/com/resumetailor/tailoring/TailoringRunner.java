@@ -18,12 +18,16 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * The tailoring pipeline, run off the request thread.
  *
  * <p>Four model calls: read the posting, rewrite the resume, write the summary at several
- * lengths, then check the resume against the posting's requirements. The last two each have
+ * lengths, then check the resume against the posting's requirements. The last two run
+ * concurrently and each have
  * their own status -- the rewrite is the expensive part, so it is saved and shown as soon as
  * it lands, and a failed summary or check can be retried without redoing it.
  */
@@ -91,9 +95,20 @@ public class TailoringRunner {
             return;
         }
 
-        // Before the gap check, so its anchors come from the summary the user will be looking at.
-        writeSummary(summaryContext, analysis, settings);
-        checkGaps(store.gapContext(runId), analysis, settings);
+        // The summary options and the gap check both read only the saved rewrite, so they run
+        // side by side instead of one after the other. The gap check therefore sees the rewrite
+        // before a chosen summary length is swapped in; an accepted addition anchored inside
+        // the summary falls back to section placement (see EffectiveBody) rather than failing.
+        GapContext gapContext = store.gapContext(runId);
+        ExecutorService summaryThread = Executors.newSingleThreadExecutor();
+        try {
+            CompletableFuture<Void> summary = CompletableFuture.runAsync(
+                    () -> writeSummary(summaryContext, analysis, settings), summaryThread);
+            checkGaps(gapContext, analysis, settings);
+            summary.join();
+        } finally {
+            summaryThread.shutdown();
+        }
         log.info("Run {} pipeline finished in {} ms", runId, since(started));
     }
 

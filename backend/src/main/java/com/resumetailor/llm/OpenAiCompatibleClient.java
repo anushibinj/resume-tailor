@@ -32,6 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *       local runtimes 400 on unknown fields.</li>
  *   <li>The output limit is sent as {@code max_tokens}, falling back to
  *       {@code max_completion_tokens} (and remembered) for models that reject it.</li>
+ *   <li>{@code reasoning_effort} is sent unless the profile says {@code none}; a server
+ *       that rejects it (non-reasoning models do) gets one retry without it, remembered.</li>
  *   <li>HTTP errors are surfaced with the provider's own message body, because the
  *       useful part ("model not found", "insufficient quota") lives there.</li>
  * </ul>
@@ -51,6 +53,8 @@ public class OpenAiCompatibleClient {
     private final Map<String, String> tokenParamByEndpoint = new ConcurrentHashMap<>();
     /** Endpoint+model pairs that rejected {@code response_format}; JSON mode is not attempted on them again. */
     private final Set<String> noJsonModeEndpoints = ConcurrentHashMap.newKeySet();
+    /** Endpoint+model pairs that rejected {@code reasoning_effort}; it is not sent to them again. */
+    private final Set<String> noReasoningEffortEndpoints = ConcurrentHashMap.newKeySet();
 
     // Explicit @Autowired: the class has a second constructor for tests, and Spring will
     // not guess between two candidates.
@@ -82,12 +86,14 @@ public class OpenAiCompatibleClient {
             log.debug("Skipping JSON mode for {}: the endpoint rejected response_format earlier", endpointKey);
             jsonMode = false;
         }
+        boolean effort = sendsReasoningEffort(settings)
+                && !noReasoningEffortEndpoints.contains(endpointKey);
         long started = System.nanoTime();
         int attempts = 1;
-        log.info("LLM call starting: model={} jsonMode={} promptChars={} maxOutputTokens={} endpoint={}",
+        log.info("LLM call starting: model={} jsonMode={} promptChars={} maxOutputTokens={} reasoningEffort={} endpoint={}",
                 settings.model(), jsonMode, systemPrompt.length() + userPrompt.length(),
-                settings.maxOutputTokens(), settings.baseUrl());
-        ResponseEntity<String> response = post(settings, systemPrompt, userPrompt, jsonMode, tokenParam);
+                settings.maxOutputTokens(), effort ? settings.reasoningEffort() : "not sent", settings.baseUrl());
+        ResponseEntity<String> response = post(settings, systemPrompt, userPrompt, jsonMode, tokenParam, effort);
 
         // OpenAI's newer models (o-series, gpt-5...) reject max_tokens and want
         // max_completion_tokens; older and third-party servers only know max_tokens. Try one,
@@ -99,7 +105,7 @@ public class OpenAiCompatibleClient {
                         tokenParam, response.getStatusCode().value(), other);
                 tokenParam = other;
                 attempts++;
-                response = post(settings, systemPrompt, userPrompt, jsonMode, tokenParam);
+                response = post(settings, systemPrompt, userPrompt, jsonMode, tokenParam, effort);
                 // Remember the field unless it was rejected too: a later failure (e.g.
                 // response_format) says nothing against it, and not remembering made every
                 // call repeat this retry.
@@ -114,7 +120,14 @@ public class OpenAiCompatibleClient {
                     response.getStatusCode().value());
             attempts++;
             noJsonModeEndpoints.add(endpointKey);
-            response = post(settings, systemPrompt, userPrompt, false, tokenParam);
+            response = post(settings, systemPrompt, userPrompt, false, tokenParam, effort);
+        }
+        if (effort && response.getStatusCode().isError() && mentionsReasoningEffort(response.getBody())) {
+            log.warn("Endpoint rejected reasoning_effort (HTTP {}); retrying without it -- this repeats the whole call",
+                    response.getStatusCode().value());
+            attempts++;
+            noReasoningEffortEndpoints.add(endpointKey);
+            response = post(settings, systemPrompt, userPrompt, jsonMode, tokenParam, false);
         }
         if (response.getStatusCode().isError()) {
             log.warn("LLM call failed after {} attempt(s) in {} ms: HTTP {}",
@@ -132,7 +145,7 @@ public class OpenAiCompatibleClient {
     }
 
     private ResponseEntity<String> post(LlmSettings settings, String systemPrompt, String userPrompt,
-                                        boolean jsonMode, String tokenParam) {
+                                        boolean jsonMode, String tokenParam, boolean effort) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", settings.model());
         payload.put("messages", List.of(
@@ -140,6 +153,9 @@ public class OpenAiCompatibleClient {
                 Map.of("role", "user", "content", userPrompt)));
         payload.put("temperature", settings.temperature());
         payload.put(tokenParam, settings.maxOutputTokens());
+        if (effort) {
+            payload.put("reasoning_effort", settings.reasoningEffort());
+        }
         if (jsonMode) {
             payload.put("response_format", Map.of("type", "json_object"));
         }
@@ -236,6 +252,15 @@ public class OpenAiCompatibleClient {
         }
         // "max_tokens" is not a substring of "max_completion_tokens", so this is unambiguous.
         return body.contains(MAX_TOKENS) ? MAX_TOKENS : null;
+    }
+
+    private static boolean sendsReasoningEffort(LlmSettings settings) {
+        String effort = settings.reasoningEffort();
+        return effort != null && !effort.isBlank() && !"none".equals(effort);
+    }
+
+    private static boolean mentionsReasoningEffort(String body) {
+        return body != null && body.contains("reasoning_effort");
     }
 
     private static boolean mentionsResponseFormat(String body) {

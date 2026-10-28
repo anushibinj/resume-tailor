@@ -11,5 +11,6 @@ public record LlmSettings(
         String apiKey,
         String model,
         BigDecimal temperature,
-        Integer maxOutputTokens) {
+        Integer maxOutputTokens,
+        String reasoningEffort) {
 }
