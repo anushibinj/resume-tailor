@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class DockerTexCompilerIT {
 
     private final DockerTexCompiler compiler = new DockerTexCompiler(
-            new PdfProperties(true, "docker", "resume-tailor-tex", 120, "1g", "2", "./artifacts"));
+            new PdfProperties(true, "docker", "resume-tailor-tex", 120, "1g", "2"));
 
     @Test
     void compilesACleanLatexResume() {
